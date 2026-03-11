@@ -1,0 +1,1 @@
+ALTER TABLE workout_logs ADD COLUMN is_rx BOOLEAN NOT NULL DEFAULT true;

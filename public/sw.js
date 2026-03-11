@@ -1,5 +1,5 @@
 const CACHE_VERSION = 'v1';
-const STATIC_CACHE = `gritwit-static-${CACHE_VERSION}`;
+const STATIC_CACHE = `grindit-static-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
   '/favicon.ico',
@@ -20,7 +20,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => key.startsWith('gritwit-static-') && key !== STATIC_CACHE)
+          .filter((key) => key.startsWith('grindit-static-') && key !== STATIC_CACHE)
           .map((key) => caches.delete(key))
       );
     })
@@ -33,6 +33,7 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== location.origin) return;
   if (event.request.method !== 'GET') return;
+  if (url.pathname.startsWith('/auth/')) return;
 
   // Navigation: network-first
   if (event.request.mode === 'navigate') {

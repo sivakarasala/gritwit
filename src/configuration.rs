@@ -3,12 +3,20 @@ use secrecy::ExposeSecret;
 use secrecy::Secret;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
-use sqlx::postgres::PgConnectOptions;
+use sqlx::postgres::{PgConnectOptions, PgSslMode};
 
 #[derive(Deserialize, Clone)]
 pub struct Settings {
     pub application: ApplicationSettings,
     pub database: DatabaseSettings,
+    pub oauth: OAuthSettings,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct OAuthSettings {
+    pub google_client_id: Secret<String>,
+    pub google_client_secret: Secret<String>,
+    pub redirect_url: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -55,9 +63,18 @@ impl DatabaseSettings {
     }
 
     pub fn connection_options(&self) -> PgConnectOptions {
-        self.connection_string()
-            .parse()
-            .expect("Invalid connection string")
+        let ssl_mode = if self.require_ssl {
+            PgSslMode::Require
+        } else {
+            PgSslMode::Disable
+        };
+        PgConnectOptions::new()
+            .host(&self.host)
+            .port(self.port)
+            .username(&self.username)
+            .password(self.password.expose_secret())
+            .database(&self.database_name)
+            .ssl_mode(ssl_mode)
     }
 }
 

@@ -1,87 +1,243 @@
 .log-workout-page {
   max-width: 600px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
 
   h1 {
-    color: #00d4ff;
-    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
   }
+}
 
-  .success {
-    background: #0a3d0a;
-    color: #4caf50;
-    padding: 0.75rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
+.date-picker {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #2a2a3e;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
   }
+}
 
-  .error {
-    background: #3d0a0a;
-    color: #ff4444;
-    padding: 0.75rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
+// Toast notifications
+.toast {
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.toast--success {
+  background: rgba(46, 204, 113, 0.12);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.25);
+}
+
+.toast--error {
+  background: rgba(231, 76, 60, 0.12);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.25);
+}
+
+// Type selector pills
+.type-selector {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.type-pill {
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  border: 1px solid #2a2a3e;
+  background: transparent;
+  color: #888;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+
+  &.active {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    color: #fff;
   }
+}
 
-  .log-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
+// Form
+.log-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
 
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 
-    label {
-      font-size: 0.85rem;
-      color: #888;
-    }
-
-    input, select, textarea {
-      padding: 0.5rem;
-      border-radius: 6px;
-      border: 1px solid #2a2a3e;
-      background: #1a1a2e;
-      color: #e0e0e0;
-    }
-
-    textarea {
-      min-height: 80px;
-      resize: vertical;
-    }
-  }
-
-  .form-row {
-    display: flex;
-    gap: 0.75rem;
-
-    .form-group {
-      flex: 1;
-    }
-  }
-
-  .exercise-entry {
-    border: 1px solid #2a2a3e;
-    border-radius: 8px;
-    padding: 1rem;
-
-    legend {
-      color: #00d4ff;
-      font-weight: 600;
-    }
-  }
-
-  .btn-primary {
-    padding: 0.75rem;
-    border-radius: 8px;
-    border: none;
-    background: #00d4ff;
-    color: #0f0f1a;
+  label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
     font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
   }
+
+  input, select, textarea {
+    padding: 0.6rem;
+    border-radius: 8px;
+    border: 1px solid #2a2a3e;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+  }
+
+  textarea {
+    min-height: 70px;
+    resize: vertical;
+  }
+}
+
+// Rx/Scaled toggle
+.rx-toggle {
+  display: flex;
+  background: #1a1a2e;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #2a2a3e;
+}
+
+.rx-btn {
+  flex: 1;
+  padding: 0.55rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &.active {
+    background: #e74c3c;
+    color: #fff;
+  }
+}
+
+.rx-btn--scaled.active {
+  background: #888;
+  color: #fff;
+}
+
+// Movement details section
+.movement-section {
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 1rem;
+  border: 1px solid #2a2a3e;
+}
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e74c3c;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.exercise-select {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #2a2a3e;
+  background: #0f0f1a;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+}
+
+.metrics-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  input {
+    padding: 0.6rem;
+    border-radius: 8px;
+    border: 1px solid #2a2a3e;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    font-size: 1rem;
+    text-align: center;
+    font-weight: 600;
+  }
+}
+
+.weight-wrap {
+  position: relative;
+
+  input {
+    width: 100%;
+    padding-right: 2rem;
+  }
+}
+
+.weight-unit {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 600;
+}
+
+// Submit button
+.submit-btn {
+  padding: 0.85rem;
+  border-radius: 10px;
+  border: none;
+  background: #e74c3c;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  letter-spacing: 0.02em;
+
+  &:hover { background: #c0392b; }
 }

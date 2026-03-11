@@ -3,6 +3,7 @@ use leptos::prelude::*;
 
 #[server]
 async fn get_exercises_for_picker() -> Result<Vec<Exercise>, ServerFnError> {
+    let _user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
     crate::db::list_exercises_db(&pool)
         .await
@@ -20,24 +21,28 @@ async fn log_workout(
     sets: String,
     reps: String,
     weight_kg: String,
+    is_rx: bool,
 ) -> Result<(), ServerFnError> {
+    let user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
+    let user_uuid: uuid::Uuid = user.id.parse().map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
     let wname = if name.is_empty() { None } else { Some(name.as_str()) };
     let wnotes = if notes.is_empty() { None } else { Some(notes.as_str()) };
     let wduration: Option<i32> = duration_seconds.parse().ok();
 
     let workout_id = crate::db::create_workout_log_db(
         &pool,
+        user_uuid,
         &workout_date,
         &workout_type,
         wname,
         wnotes,
         wduration,
+        is_rx,
     )
     .await
     .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-    // Add exercise entry if one was selected
     if !exercise_id.is_empty() {
         let eid: uuid::Uuid = exercise_id
             .parse()
@@ -78,8 +83,8 @@ pub fn LogWorkoutPage() -> impl IntoView {
     let sets_input = RwSignal::new(String::new());
     let reps_input = RwSignal::new(String::new());
     let weight_input = RwSignal::new(String::new());
+    let is_rx = RwSignal::new(true);
 
-    // Set today's date as default
     #[cfg(feature = "hydrate")]
     {
         let date_signal = workout_date;
@@ -104,8 +109,8 @@ pub fn LogWorkoutPage() -> impl IntoView {
             sets: sets_input.get_untracked(),
             reps: reps_input.get_untracked(),
             weight_kg: weight_input.get_untracked(),
+            is_rx: is_rx.get_untracked(),
         });
-        // Reset form
         name_input.set(String::new());
         notes_input.set(String::new());
         duration_input.set(String::new());
@@ -118,54 +123,88 @@ pub fn LogWorkoutPage() -> impl IntoView {
 
     view! {
         <div class="log-workout-page">
-            <h1>"Log Workout"</h1>
+            <div class="log-header">
+                <h1>"Log Result"</h1>
+                <input
+                    type="date"
+                    class="date-picker"
+                    prop:value=move || workout_date.get()
+                    on:input=move |ev| workout_date.set(event_target_value(&ev))
+                />
+            </div>
 
             {move || {
                 log_value.get().map(|result| {
                     match result {
-                        Ok(()) => view! { <p class="success">"Workout logged!"</p> }.into_any(),
-                        Err(e) => view! { <p class="error">{format!("Error: {}", e)}</p> }.into_any(),
+                        Ok(()) => view! {
+                            <div class="toast toast--success">"Result posted!"</div>
+                        }.into_any(),
+                        Err(e) => view! {
+                            <div class="toast toast--error">{format!("Error: {}", e)}</div>
+                        }.into_any(),
                     }
                 })
             }}
 
+            // Type selector pills
+            <div class="type-selector">
+                {["strength", "amrap", "emom", "for_time", "meditation", "breathing", "chanting"].into_iter().map(|t| {
+                    let t_str = t.to_string();
+                    let label = match t {
+                        "strength" => "Strength",
+                        "amrap" => "AMRAP",
+                        "emom" => "EMOM",
+                        "for_time" => "For Time",
+                        "meditation" => "Meditation",
+                        "breathing" => "Breathing",
+                        "chanting" => "Chanting",
+                        _ => t,
+                    };
+                    let t_active = t_str.clone();
+                    let t_click = t_str.clone();
+                    view! {
+                        <button
+                            type="button"
+                            class="type-pill"
+                            class:active=move || workout_type.get() == t_active
+                            on:click=move |_| workout_type.set(t_click.clone())
+                        >
+                            {label}
+                        </button>
+                    }
+                }).collect_view()}
+            </div>
+
             <form class="log-form" on:submit=on_submit>
-                <div class="form-group">
-                    <label>"Date"</label>
-                    <input
-                        type="date"
-                        prop:value=move || workout_date.get()
-                        on:input=move |ev| workout_date.set(event_target_value(&ev))
-                    />
-                </div>
-
-                <div class="form-group">
-                    <label>"Type"</label>
-                    <select
-                        prop:value=move || workout_type.get()
-                        on:change=move |ev| workout_type.set(event_target_value(&ev))
-                    >
-                        <option value="strength">"Strength"</option>
-                        <option value="amrap">"AMRAP"</option>
-                        <option value="emom">"EMOM"</option>
-                        <option value="for_time">"For Time"</option>
-                        <option value="meditation">"Meditation"</option>
-                        <option value="breathing">"Breathing"</option>
-                        <option value="chanting">"Chanting"</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>"Name (optional)"</label>
+                // Workout name
+                <div class="form-field">
+                    <label>"Workout Name"</label>
                     <input
                         type="text"
-                        placeholder="e.g. Fran, Morning Meditation"
+                        placeholder="e.g. Fran, Murph, Morning Flow"
                         prop:value=move || name_input.get()
                         on:input=move |ev| name_input.set(event_target_value(&ev))
                     />
                 </div>
 
-                <div class="form-group">
+                // Rx/Scaled toggle
+                <div class="rx-toggle">
+                    <button
+                        type="button"
+                        class="rx-btn"
+                        class:active=move || is_rx.get()
+                        on:click=move |_| is_rx.set(true)
+                    >"Rx"</button>
+                    <button
+                        type="button"
+                        class="rx-btn rx-btn--scaled"
+                        class:active=move || !is_rx.get()
+                        on:click=move |_| is_rx.set(false)
+                    >"Scaled"</button>
+                </div>
+
+                // Duration
+                <div class="form-field">
                     <label>"Duration (seconds)"</label>
                     <input
                         type="number"
@@ -175,20 +214,21 @@ pub fn LogWorkoutPage() -> impl IntoView {
                     />
                 </div>
 
-                <fieldset class="exercise-entry">
-                    <legend>"Exercise"</legend>
-                    <div class="form-group">
-                        <label>"Exercise"</label>
+                // Movement details section
+                <div class="movement-section">
+                    <h3 class="section-title">"Movement Details"</h3>
+                    <div class="form-field">
                         <Suspense fallback=|| view! { <select><option>"Loading..."</option></select> }>
                             {move || {
                                 exercises.get().map(|result| {
                                     match result {
                                         Ok(list) => view! {
                                             <select
+                                                class="exercise-select"
                                                 prop:value=move || exercise_id.get()
                                                 on:change=move |ev| exercise_id.set(event_target_value(&ev))
                                             >
-                                                <option value="">"-- Select --"</option>
+                                                <option value="">"Select movement"</option>
                                                 {list.into_iter().map(|ex| {
                                                     view! { <option value={ex.id.clone()}>{ex.name}</option> }
                                                 }).collect_view()}
@@ -200,45 +240,52 @@ pub fn LogWorkoutPage() -> impl IntoView {
                             }}
                         </Suspense>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
+                    <div class="metrics-row">
+                        <div class="metric">
                             <label>"Sets"</label>
                             <input
                                 type="number"
+                                placeholder="--"
                                 prop:value=move || sets_input.get()
                                 on:input=move |ev| sets_input.set(event_target_value(&ev))
                             />
                         </div>
-                        <div class="form-group">
+                        <div class="metric">
                             <label>"Reps"</label>
                             <input
                                 type="number"
+                                placeholder="--"
                                 prop:value=move || reps_input.get()
                                 on:input=move |ev| reps_input.set(event_target_value(&ev))
                             />
                         </div>
-                        <div class="form-group">
-                            <label>"Weight (kg)"</label>
-                            <input
-                                type="number"
-                                step="0.5"
-                                prop:value=move || weight_input.get()
-                                on:input=move |ev| weight_input.set(event_target_value(&ev))
-                            />
+                        <div class="metric">
+                            <label>"Weight"</label>
+                            <div class="weight-wrap">
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    placeholder="--"
+                                    prop:value=move || weight_input.get()
+                                    on:input=move |ev| weight_input.set(event_target_value(&ev))
+                                />
+                                <span class="weight-unit">"kg"</span>
+                            </div>
                         </div>
                     </div>
-                </fieldset>
+                </div>
 
-                <div class="form-group">
+                // Notes
+                <div class="form-field">
                     <label>"Notes"</label>
                     <textarea
-                        placeholder="How did it feel?"
+                        placeholder="How did it feel? Any PRs?"
                         prop:value=move || notes_input.get()
                         on:input=move |ev| notes_input.set(event_target_value(&ev))
                     />
                 </div>
 
-                <button type="submit" class="btn btn-primary">"Log Workout"</button>
+                <button type="submit" class="submit-btn">"Post Result"</button>
             </form>
         </div>
     }

@@ -1,4 +1,5 @@
-use crate::pages::{ExercisesPage, HistoryPage, HomePage, LogWorkoutPage};
+use crate::auth::{get_me, AuthUser, UserRole};
+use crate::pages::{AdminPage, ExercisesPage, HistoryPage, HomePage, LoginPage, LogWorkoutPage};
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -12,13 +13,16 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
         <html lang="en">
             <head>
                 <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
                 <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
                 <link rel="manifest" href="/manifest.json"/>
-                <meta name="theme-color" content="#1a1a2e"/>
+                <meta name="theme-color" content="#e74c3c"/>
+                <link rel="preconnect" href="https://fonts.googleapis.com"/>
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
+                <link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet"/>
                 <meta name="apple-mobile-web-app-capable" content="yes"/>
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-                <meta name="apple-mobile-web-app-title" content="GritWit"/>
+                <meta name="apple-mobile-web-app-title" content="GrindIt"/>
                 <AutoReload options=options.clone() />
                 <HydrationScripts options/>
                 <MetaTags/>
@@ -33,37 +37,79 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+    let user = Resource::new(|| (), |_| get_me());
 
     view! {
         <Stylesheet id="leptos" href="/pkg/gritwit.css"/>
-        <Title text="GritWit"/>
+        <Title text="GrindIt"/>
 
         <Router>
-            <Header/>
-            <main>
-                <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("") view=HomePage/>
-                    <Route path=StaticSegment("exercises") view=ExercisesPage/>
-                    <Route path=StaticSegment("log") view=LogWorkoutPage/>
-                    <Route path=StaticSegment("history") view=HistoryPage/>
-                </Routes>
-            </main>
+            <Suspense fallback=|| view! { <div class="login-page"><p>"Loading..."</p></div> }>
+                {move || {
+                    user.get().map(|result| {
+                        match result {
+                            Ok(Some(auth_user)) => {
+                                view! { <AuthenticatedApp user=auth_user/> }.into_any()
+                            }
+                            _ => {
+                                view! { <LoginPage/> }.into_any()
+                            }
+                        }
+                    })
+                }}
+            </Suspense>
         </Router>
     }
 }
 
 #[component]
-fn Header() -> impl IntoView {
+fn AuthenticatedApp(user: AuthUser) -> impl IntoView {
+    let is_admin = user.role == UserRole::Admin;
+    provide_context(user.clone());
+
     view! {
-        <header>
-            <nav>
-                <A href="/" attr:class="logo">"GritWit"</A>
-                <div class="nav-links">
-                    <A href="/exercises" attr:class="nav-link">"Exercises"</A>
-                    <A href="/log" attr:class="nav-link">"Log"</A>
-                    <A href="/history" attr:class="nav-link">"History"</A>
-                </div>
-            </nav>
+        <header class="top-bar">
+            <span class="top-bar__logo">"Grind"<span class="top-bar__flame"></span>"t"</span>
         </header>
+        <main>
+            <Routes fallback=|| "Page not found.".into_view()>
+                <Route path=StaticSegment("") view=HomePage/>
+                <Route path=StaticSegment("exercises") view=ExercisesPage/>
+                <Route path=StaticSegment("log") view=LogWorkoutPage/>
+                <Route path=StaticSegment("history") view=HistoryPage/>
+                <Route path=StaticSegment("admin") view=AdminPage/>
+            </Routes>
+        </main>
+        <BottomNav is_admin=is_admin/>
+    }
+}
+
+#[component]
+fn BottomNav(is_admin: bool) -> impl IntoView {
+    view! {
+        <nav class="bottom-nav">
+            <A href="/" attr:class="tab-item" exact=true>
+                <span class="tab-icon tab-icon--home"></span>
+                <span class="tab-label">"Home"</span>
+            </A>
+            <A href="/exercises" attr:class="tab-item">
+                <span class="tab-icon tab-icon--exercises"></span>
+                <span class="tab-label">"Exercises"</span>
+            </A>
+            <A href="/log" attr:class="tab-item">
+                <span class="tab-icon tab-icon--plus"></span>
+                <span class="tab-label">"Log"</span>
+            </A>
+            <A href="/history" attr:class="tab-item">
+                <span class="tab-icon tab-icon--history"></span>
+                <span class="tab-label">"History"</span>
+            </A>
+            {is_admin.then(|| view! {
+                <A href="/admin" attr:class="tab-item">
+                    <span class="tab-icon tab-icon--home"></span>
+                    <span class="tab-label">"Admin"</span>
+                </A>
+            })}
+        </nav>
     }
 }

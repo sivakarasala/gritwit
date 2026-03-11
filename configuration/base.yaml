@@ -9,3 +9,7 @@ database:
   database_name: "gritwit"
   require_ssl: false
   channel_binding: false
+oauth:
+  google_client_id: "PLACEHOLDER"
+  google_client_secret: "PLACEHOLDER"
+  redirect_url: "http://localhost:3000/auth/google/callback"

@@ -1,11 +1,11 @@
 {
-  "name": "GritWit - Body & Mind Tracker",
-  "short_name": "GritWit",
+  "name": "GrindIt - Body & Mind Tracker",
+  "short_name": "GrindIt",
   "description": "Track CrossFit workouts, meditation, breathing, and chanting",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f0f1a",
-  "theme_color": "#1a1a2e",
+  "theme_color": "#e74c3c",
   "orientation": "portrait-primary",
   "icons": [
     {

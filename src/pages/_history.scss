@@ -1,64 +1,203 @@
 .history-page {
   max-width: 600px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+  margin: 0 auto;
+  padding: 1rem;
 
   h1 {
-    color: #00d4ff;
-    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 1rem;
   }
+}
 
-  .workout-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
+// Week navigator
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
 
-  .workout-card {
-    background: #1a1a2e;
-    border-radius: 10px;
-    padding: 1rem;
-  }
+.week-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #2a2a3e;
+  background: transparent;
+  color: #888;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 
-  .workout-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
-  }
+.week-days {
+  display: flex;
+  flex: 1;
+  justify-content: space-around;
+}
 
-  .workout-date {
-    font-weight: 600;
-  }
+.week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 8px;
+  transition: all 0.2s;
 
-  .workout-type {
-    background: #2a2a3e;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    color: #00d4ff;
-  }
+  &.active {
+    color: #fff;
+    background: #e74c3c;
 
-  .workout-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
+    .week-date { color: #fff; }
   }
+}
 
-  .workout-duration {
-    color: #888;
-    font-size: 0.9rem;
-  }
+.week-date {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ccc;
+}
 
-  .workout-notes {
-    color: #aaa;
-    font-size: 0.85rem;
-    margin-top: 0.5rem;
-    font-style: italic;
-  }
+// Results feed
+.results-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 
-  .empty {
-    color: #888;
-    text-align: center;
-    padding: 2rem;
-  }
+.result-card {
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.result-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.result-wod-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.result-badge--amrap { background: rgba(231, 76, 60, 0.15); color: #e74c3c; }
+.result-badge--strength { background: rgba(52, 152, 219, 0.15); color: #3498db; }
+.result-badge--emom { background: rgba(155, 89, 182, 0.15); color: #9b59b6; }
+.result-badge--fortime { background: rgba(230, 126, 34, 0.15); color: #e67e22; }
+.result-badge--meditation { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+.result-badge--breathing { background: rgba(26, 188, 156, 0.15); color: #1abc9c; }
+.result-badge--chanting { background: rgba(243, 156, 18, 0.15); color: #f39c12; }
+
+.result-wod-name {
+  font-weight: 700;
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.result-date {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+// Score row
+.result-score-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.result-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #2a2a3e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+.result-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.result-athlete {
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  font-weight: 600;
+}
+
+.result-score-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.result-score {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.result-rx {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #e74c3c;
+  background: rgba(231, 76, 60, 0.15);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.result-pr {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f39c12;
+  background: rgba(243, 156, 18, 0.15);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.result-notes {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #2a2a3e;
+  font-size: 0.85rem;
+  color: #aaa;
+  font-style: italic;
+}
+
+.loading {
+  color: #888;
+  text-align: center;
+  padding: 2rem;
 }
