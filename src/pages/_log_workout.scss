@@ -1,0 +1,87 @@
+.log-workout-page {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+
+  h1 {
+    color: #00d4ff;
+    margin-bottom: 1.5rem;
+  }
+
+  .success {
+    background: #0a3d0a;
+    color: #4caf50;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .error {
+    background: #3d0a0a;
+    color: #ff4444;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .log-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    label {
+      font-size: 0.85rem;
+      color: #888;
+    }
+
+    input, select, textarea {
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #2a2a3e;
+      background: #1a1a2e;
+      color: #e0e0e0;
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+  }
+
+  .form-row {
+    display: flex;
+    gap: 0.75rem;
+
+    .form-group {
+      flex: 1;
+    }
+  }
+
+  .exercise-entry {
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+    padding: 1rem;
+
+    legend {
+      color: #00d4ff;
+      font-weight: 600;
+    }
+  }
+
+  .btn-primary {
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: none;
+    background: #00d4ff;
+    color: #0f0f1a;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+}

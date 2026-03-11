@@ -1,0 +1,73 @@
+.home-page {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  text-align: center;
+
+  h1 {
+    font-size: 2.5rem;
+    color: #00d4ff;
+    margin-bottom: 0.25rem;
+  }
+
+  .tagline {
+    color: #888;
+    margin-bottom: 2rem;
+  }
+
+  .stats-grid {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+  }
+
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #00d4ff;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: #888;
+  }
+
+  .quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .btn {
+    display: block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    text-align: center;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: #00d4ff;
+    color: #0f0f1a;
+  }
+
+  .btn-secondary {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #2a2a3e;
+  }
+}

@@ -1,0 +1,11 @@
+// Base
+@use "reset";
+
+// Components (co-located with Rust files)
+@use "../src/components/header";
+
+// Pages (co-located with Rust files)
+@use "../src/pages/home";
+@use "../src/pages/exercises";
+@use "../src/pages/log_workout";
+@use "../src/pages/history";

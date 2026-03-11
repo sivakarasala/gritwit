@@ -1,0 +1,18 @@
+{
+  "name": "GritWit - Body & Mind Tracker",
+  "short_name": "GritWit",
+  "description": "Track CrossFit workouts, meditation, breathing, and chanting",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#1a1a2e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ]
+}
