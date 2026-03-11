@@ -55,5 +55,11 @@ impl AuthUser {
 
 #[server]
 pub async fn get_me() -> Result<Option<AuthUser>, ServerFnError> {
-    session::get_current_user().await
+    let result = session::get_current_user().await;
+    match &result {
+        Ok(Some(u)) => tracing::info!("get_me: authenticated as {}", u.email),
+        Ok(None) => tracing::info!("get_me: no session found"),
+        Err(e) => tracing::warn!("get_me: error: {}", e),
+    }
+    result
 }

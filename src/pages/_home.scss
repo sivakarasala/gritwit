@@ -121,6 +121,41 @@
   color: #888;
 }
 
+// Quick actions
+.quick-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.quick-action-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem 0.5rem;
+  background: #1a1a2e;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.2s;
+
+  &:hover { background: #22223a; }
+}
+
+.quick-action-icon {
+  font-size: 1.3rem;
+  color: #e74c3c;
+}
+
+.quick-action-label {
+  font-size: 0.7rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
 // Stats bar
 .stats-bar {
   display: flex;
@@ -249,4 +284,11 @@
 .lb-rx--scaled {
   color: #888;
   background: rgba(136, 136, 136, 0.15);
+}
+
+.leaderboard-empty {
+  text-align: center;
+  padding: 1rem 0;
+  color: #666;
+  font-size: 0.85rem;
 }

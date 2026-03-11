@@ -32,6 +32,8 @@ async fn main() {
         .await
         .expect("Could not run database migrations");
 
+    gritwit::db::init_pool(pool.clone());
+
     // Session store
     let session_store = tower_sessions_sqlx_store::PostgresStore::new(pool.clone());
     session_store

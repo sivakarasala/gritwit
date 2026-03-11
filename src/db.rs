@@ -1,9 +1,21 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
+static POOL: std::sync::OnceLock<sqlx::PgPool> = std::sync::OnceLock::new();
+
+/// Call once from main() to make the pool globally available.
+#[cfg(feature = "ssr")]
+pub fn init_pool(pool: sqlx::PgPool) {
+    POOL.set(pool).expect("Pool already initialized");
+}
+
+#[cfg(feature = "ssr")]
 pub async fn db() -> Result<sqlx::PgPool, leptos::prelude::ServerFnError> {
+    // Try Leptos context first (available inside leptos_routes_with_context),
+    // fall back to the global pool for server function calls outside that scope.
     leptos::prelude::use_context::<sqlx::PgPool>()
-        .ok_or_else(|| leptos::prelude::ServerFnError::new("Database pool not found in context"))
+        .or_else(|| POOL.get().cloned())
+        .ok_or_else(|| leptos::prelude::ServerFnError::new("Database pool not initialized"))
 }
 
 // ---- Models ----
@@ -29,6 +41,7 @@ pub struct WorkoutLog {
     pub name: Option<String>,
     pub notes: Option<String>,
     pub duration_seconds: Option<i32>,
+    pub is_rx: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -176,7 +189,7 @@ pub async fn list_workout_logs_db(
     sqlx::query_as::<_, WorkoutLog>(
         r#"SELECT
             id::text, workout_date::text, workout_type,
-            name, notes, duration_seconds
+            name, notes, duration_seconds, is_rx
         FROM workout_logs
         WHERE user_id = $1
         ORDER BY workout_date DESC, created_at DESC
@@ -285,4 +298,93 @@ pub async fn count_workouts_db(pool: &sqlx::PgPool, user_id: uuid::Uuid) -> Resu
         .fetch_one(pool)
         .await?;
     Ok(row.0)
+}
+
+/// Count consecutive days (ending today or yesterday) that the user has logged workouts.
+#[cfg(feature = "ssr")]
+pub async fn streak_days_db(pool: &sqlx::PgPool, user_id: uuid::Uuid) -> Result<i64, sqlx::Error> {
+    // Get distinct workout dates in descending order, starting from today
+    let dates: Vec<(chrono::NaiveDate,)> = sqlx::query_as(
+        r#"SELECT DISTINCT workout_date
+           FROM workout_logs
+           WHERE user_id = $1 AND workout_date <= CURRENT_DATE
+           ORDER BY workout_date DESC"#,
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+
+    if dates.is_empty() {
+        return Ok(0);
+    }
+
+    let today = chrono::Local::now().date_naive();
+    let mut streak = 0i64;
+    let mut expected = today;
+
+    for (date,) in dates {
+        // Allow starting from today or yesterday
+        if streak == 0 && date == today - chrono::Duration::days(1) {
+            expected = today - chrono::Duration::days(1);
+        }
+        if date == expected {
+            streak += 1;
+            expected -= chrono::Duration::days(1);
+        } else if date < expected {
+            break;
+        }
+    }
+
+    Ok(streak)
+}
+
+/// Leaderboard entry for a given date range.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct LeaderboardEntry {
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+    pub workout_count: i64,
+}
+
+#[cfg(feature = "ssr")]
+pub async fn leaderboard_db(pool: &sqlx::PgPool, limit: i64) -> Result<Vec<LeaderboardEntry>, sqlx::Error> {
+    // Simple leaderboard: users ranked by total workouts logged this week
+    let rows: Vec<(String, Option<String>, i64)> = sqlx::query_as(
+        r#"SELECT u.display_name, u.avatar_url, COUNT(wl.id) as workout_count
+           FROM users u
+           LEFT JOIN workout_logs wl ON wl.user_id = u.id
+               AND wl.workout_date >= date_trunc('week', CURRENT_DATE)::date
+           GROUP BY u.id, u.display_name, u.avatar_url
+           HAVING COUNT(wl.id) > 0
+           ORDER BY workout_count DESC
+           LIMIT $1"#,
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|(display_name, avatar_url, workout_count)| {
+        LeaderboardEntry { display_name, avatar_url, workout_count }
+    }).collect())
+}
+
+/// Get workouts for a specific date, scoped to user.
+#[cfg(feature = "ssr")]
+pub async fn list_workouts_by_date_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+    date: chrono::NaiveDate,
+) -> Result<Vec<WorkoutLog>, sqlx::Error> {
+    sqlx::query_as::<_, WorkoutLog>(
+        r#"SELECT
+            id::text, workout_date::text, workout_type,
+            name, notes, duration_seconds, is_rx
+        FROM workout_logs
+        WHERE user_id = $1 AND workout_date = $2
+        ORDER BY created_at DESC"#,
+    )
+    .bind(user_id)
+    .bind(date)
+    .fetch_all(pool)
+    .await
 }

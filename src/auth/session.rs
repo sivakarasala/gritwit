@@ -17,6 +17,8 @@ pub async fn get_current_user() -> Result<Option<AuthUser>, ServerFnError> {
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
+    tracing::debug!("session id={:?}, user_id={:?}", session.id(), user_id);
+
     let Some(uid) = user_id else {
         return Ok(None);
     };

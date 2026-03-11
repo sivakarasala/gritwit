@@ -51,7 +51,11 @@ pub fn App() -> impl IntoView {
                             Ok(Some(auth_user)) => {
                                 view! { <AuthenticatedApp user=auth_user/> }.into_any()
                             }
-                            _ => {
+                            Ok(None) => {
+                                view! { <LoginPage/> }.into_any()
+                            }
+                            Err(e) => {
+                                leptos::logging::log!("get_me error: {}", e);
                                 view! { <LoginPage/> }.into_any()
                             }
                         }

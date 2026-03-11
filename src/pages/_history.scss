@@ -11,6 +11,16 @@
   }
 }
 
+.week-month-label {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
 // Week navigator
 .week-nav {
   display: flex;
@@ -175,6 +185,11 @@
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
   text-transform: uppercase;
+
+  &--scaled {
+    color: #f39c12;
+    background: rgba(243, 156, 18, 0.15);
+  }
 }
 
 .result-pr {
