@@ -23,8 +23,8 @@ src/
 
   pages/
     home.rs           # Dashboard with stats, streak, leaderboard
-    exercises.rs      # Exercise library CRUD with video upload
-    wod.rs            # WOD programming (coach/admin only for create/delete)
+    exercises.rs      # Exercise library CRUD with inline edit and video upload
+    wod.rs            # WOD programming with inline edit (coach/admin only)
     log_workout.rs    # Log workouts with exercise rows
     history.rs        # Weekly calendar view of past workouts
     login.rs          # Google sign-in page
@@ -45,7 +45,10 @@ configuration/
 
 migrations/           # PostgreSQL migrations (auto-run on startup)
 public/               # PWA manifest, service worker, icons
-scripts/init_db.sh    # Local DB setup script
+scripts/
+  init_db.sh          # Local DB setup script
+  pre-commit          # Pre-commit hook (fmt + clippy)
+  setup-hooks.sh      # Install git hooks
 ```
 
 ### Tech Stack
@@ -63,8 +66,9 @@ scripts/init_db.sh    # Local DB setup script
 
 ### Roles
 
-- **Athlete** (default on signup) -- log workouts, view exercises & WODs
-- **Coach** (promoted by admin) -- create/delete WODs and movements
+- **Anonymous** -- browse WOD and Exercises pages (read-only)
+- **Athlete** (default on signup) -- log workouts, view exercises & WODs, add exercises
+- **Coach** (promoted by admin) -- create/edit/delete WODs and movements
 - **Admin** (first user to sign up) -- manage user roles
 
 ## Local Development
@@ -99,6 +103,14 @@ SKIP_DOCKER=true ./scripts/init_db.sh
 APP_OAUTH__GOOGLE_CLIENT_ID=your-client-id
 APP_OAUTH__GOOGLE_CLIENT_SECRET=your-client-secret
 ```
+
+### Git Hooks
+
+```bash
+./scripts/setup-hooks.sh
+```
+
+This installs a pre-commit hook that runs `cargo fmt --check` and `cargo clippy` (same checks as CI).
 
 ### Run
 
@@ -176,6 +188,9 @@ GitHub Actions (`.github/workflows/`):
 - [x] Health check endpoint (`/api/v1/health_check`)
 - [x] Request ID tracing (x-request-id propagation)
 - [x] CI pipeline (fmt, clippy, tests, security audit)
+- [x] Pre-commit hooks (fmt + clippy)
+- [x] Public pages (WOD, Exercises) accessible without sign-in
+- [x] PWA install banner (Android/desktop native prompt, iOS instructions)
 
 ### Pending
 
