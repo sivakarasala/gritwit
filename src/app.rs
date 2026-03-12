@@ -1,5 +1,5 @@
 use crate::auth::{get_me, AuthUser, UserRole};
-use crate::pages::{AdminPage, ExercisesPage, HistoryPage, HomePage, LoginPage, LogWorkoutPage, WodPage};
+use crate::pages::{AdminPage, ExercisesPage, HistoryPage, HomePage, LoginPage, LogWorkoutPage, ProfilePage, WodPage};
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -83,8 +83,12 @@ fn AuthenticatedApp(user: AuthUser) -> impl IntoView {
                     <span class="theme-icon theme-icon--sun"></span>
                     <span class="theme-icon theme-icon--moon"></span>
                 </button>
-                <a href="/auth/logout" class="logout-btn">
-                    <span class="logout-icon"></span>
+                <a href="/profile" class="top-bar__avatar">
+                    {if let Some(ref url) = user.avatar_url {
+                        view! { <img src={url.clone()} class="top-bar__avatar-img" referrerpolicy="no-referrer"/> }.into_any()
+                    } else {
+                        view! { <span class="top-bar__avatar-initials">{user.initials()}</span> }.into_any()
+                    }}
                 </a>
             </div>
         </header>
@@ -95,6 +99,7 @@ fn AuthenticatedApp(user: AuthUser) -> impl IntoView {
                 <Route path=StaticSegment("wod") view=WodPage/>
                 <Route path=StaticSegment("log") view=LogWorkoutPage/>
                 <Route path=StaticSegment("history") view=HistoryPage/>
+                <Route path=StaticSegment("profile") view=ProfilePage/>
                 <Route path=StaticSegment("admin") view=AdminPage/>
             </Routes>
         </main>
