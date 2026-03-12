@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `grindit-static-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
