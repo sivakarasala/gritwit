@@ -17,7 +17,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-                <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+                <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
                 <link rel="manifest" href="/manifest.json"/>
                 <meta name="theme-color" content="#0f0f1a"/>
                 <script>"(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t)})()"</script>
