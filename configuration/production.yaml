@@ -4,3 +4,5 @@ application:
 database:
   require_ssl: true
   channel_binding: false
+storage:
+  backend: "r2"

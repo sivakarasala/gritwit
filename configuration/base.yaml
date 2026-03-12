@@ -13,3 +13,5 @@ oauth:
   google_client_id: "PLACEHOLDER"
   google_client_secret: "PLACEHOLDER"
   redirect_url: "http://localhost:3000/auth/google/callback"
+storage:
+  backend: "local"

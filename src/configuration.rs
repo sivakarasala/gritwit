@@ -10,6 +10,17 @@ pub struct Settings {
     pub application: ApplicationSettings,
     pub database: DatabaseSettings,
     pub oauth: OAuthSettings,
+    pub storage: StorageSettings,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct StorageSettings {
+    pub backend: String, // "local" or "r2"
+    pub r2_account_id: Option<String>,
+    pub r2_access_key: Option<Secret<String>>,
+    pub r2_secret_key: Option<Secret<String>>,
+    pub r2_bucket: Option<String>,
+    pub r2_public_url: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]

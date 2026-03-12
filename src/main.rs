@@ -8,6 +8,7 @@ async fn main() {
     use gritwit::configuration;
     use axum::routing::post;
     use gritwit::routes::{health_check, upload_video, ApiDoc};
+    use gritwit::storage::StorageBackend;
     use gritwit::telemetry::{get_subscriber, init_subscriber};
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -58,6 +59,10 @@ async fn main() {
         pool: pool.clone(),
     };
 
+    // Storage backend
+    let storage = std::sync::Arc::new(StorageBackend::from_config(&app_config.storage));
+    tracing::info!("storage backend: {}", app_config.storage.backend);
+
     let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
@@ -65,7 +70,8 @@ async fn main() {
 
     let api_routes = Router::new()
         .route("/health_check", get(health_check))
-        .route("/upload/video", post(upload_video));
+        .route("/upload/video", post(upload_video))
+        .with_state(storage);
 
     let auth_routes = Router::new()
         .route("/auth/google/login", get(oauth::google_login))

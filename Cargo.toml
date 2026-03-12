@@ -39,6 +39,7 @@ oauth2 = { version = "5", optional = true }
 tower-sessions = { version = "0.14", optional = true }
 tower-sessions-sqlx-store = { version = "0.15", features = ["postgres"], optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustls-tls"], optional = true }
 
 [features]
 hydrate = [
@@ -76,6 +77,7 @@ ssr = [
     "dep:tower-sessions",
     "dep:tower-sessions-sqlx-store",
     "dep:reqwest",
+    "dep:rust-s3",
 ]
 
 [dev-dependencies]

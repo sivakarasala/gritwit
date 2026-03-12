@@ -14,6 +14,8 @@ pub mod voice;
 #[cfg(feature = "ssr")]
 pub mod routes;
 #[cfg(feature = "ssr")]
+pub mod storage;
+#[cfg(feature = "ssr")]
 pub mod telemetry;
 
 #[cfg(feature = "hydrate")]
