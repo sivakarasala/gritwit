@@ -47,6 +47,7 @@ hydrate = [
     "dep:wasm-bindgen",
     "dep:js-sys",
     "dep:wasm-bindgen-futures",
+    "dep:serde_json",
 ]
 ssr = [
     "dep:axum",

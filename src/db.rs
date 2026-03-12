@@ -152,17 +152,19 @@ pub async fn create_exercise_db(
     movement_type: Option<&str>,
     muscle_groups: &[String],
     description: Option<&str>,
+    demo_video_url: Option<&str>,
     created_by: Option<uuid::Uuid>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
-        r#"INSERT INTO exercises (name, category, movement_type, muscle_groups, description, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6)"#,
+        r#"INSERT INTO exercises (name, category, movement_type, muscle_groups, description, demo_video_url, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
     )
     .bind(name)
     .bind(category)
     .bind(movement_type)
     .bind(muscle_groups)
     .bind(description)
+    .bind(demo_video_url)
     .bind(created_by)
     .execute(pool)
     .await?;
@@ -387,4 +389,135 @@ pub async fn list_workouts_by_date_db(
     .bind(date)
     .fetch_all(pool)
     .await
+}
+
+// ---- WOD Models ----
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Wod {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub workout_type: String,
+    pub time_cap_minutes: Option<i32>,
+    pub programmed_date: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct WodMovement {
+    pub id: String,
+    pub exercise_name: String,
+    pub reps: Option<i32>,
+    pub sets: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub notes: Option<String>,
+    pub sort_order: i32,
+}
+
+// ---- WOD Queries ----
+
+#[cfg(feature = "ssr")]
+pub async fn list_wods_db(pool: &sqlx::PgPool) -> Result<Vec<Wod>, sqlx::Error> {
+    sqlx::query_as::<_, Wod>(
+        r#"SELECT id::text, title, description, workout_type,
+                  time_cap_minutes, programmed_date::text
+           FROM wods
+           ORDER BY programmed_date DESC, created_at DESC"#,
+    )
+    .fetch_all(pool)
+    .await
+}
+
+#[cfg(feature = "ssr")]
+pub async fn create_wod_db(
+    pool: &sqlx::PgPool,
+    title: &str,
+    description: Option<&str>,
+    workout_type: &str,
+    time_cap_minutes: Option<i32>,
+    programmed_date: &str,
+    created_by: Option<uuid::Uuid>,
+) -> Result<uuid::Uuid, sqlx::Error> {
+    let date: chrono::NaiveDate = programmed_date
+        .parse()
+        .map_err(|e| sqlx::Error::Protocol(format!("Invalid date: {}", e)))?;
+    let row: (uuid::Uuid,) = sqlx::query_as(
+        r#"INSERT INTO wods (title, description, workout_type, time_cap_minutes, programmed_date, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id"#,
+    )
+    .bind(title)
+    .bind(description)
+    .bind(workout_type)
+    .bind(time_cap_minutes)
+    .bind(date)
+    .bind(created_by)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
+}
+
+#[cfg(feature = "ssr")]
+pub async fn delete_wod_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM wods WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+pub async fn delete_wod_movement_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM wod_movements WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+pub async fn get_wod_movements_db(
+    pool: &sqlx::PgPool,
+    wod_id: uuid::Uuid,
+) -> Result<Vec<WodMovement>, sqlx::Error> {
+    sqlx::query_as::<_, WodMovement>(
+        r#"SELECT wm.id::text, e.name as exercise_name,
+                  wm.reps, wm.sets, wm.weight_kg, wm.notes, wm.sort_order
+           FROM wod_movements wm
+           JOIN exercises e ON e.id = wm.exercise_id
+           WHERE wm.wod_id = $1
+           ORDER BY wm.sort_order, wm.created_at"#,
+    )
+    .bind(wod_id)
+    .fetch_all(pool)
+    .await
+}
+
+#[cfg(feature = "ssr")]
+pub async fn add_wod_movement_db(
+    pool: &sqlx::PgPool,
+    wod_id: uuid::Uuid,
+    exercise_id: uuid::Uuid,
+    reps: Option<i32>,
+    sets: Option<i32>,
+    weight_kg: Option<f32>,
+    notes: Option<&str>,
+    sort_order: i32,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"INSERT INTO wod_movements (wod_id, exercise_id, reps, sets, weight_kg, notes, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+    )
+    .bind(wod_id)
+    .bind(exercise_id)
+    .bind(reps)
+    .bind(sets)
+    .bind(weight_kg)
+    .bind(notes)
+    .bind(sort_order)
+    .execute(pool)
+    .await?;
+    Ok(())
 }

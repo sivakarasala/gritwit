@@ -35,8 +35,6 @@ pub fn AdminPage() -> impl IntoView {
 
     view! {
         <div class="admin-page">
-            <h1>"User Management"</h1>
-
             <Suspense fallback=|| view! { <p class="loading">"Loading users..."</p> }>
                 {move || {
                     users.get().map(|result| {

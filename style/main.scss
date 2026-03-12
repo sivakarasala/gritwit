@@ -1,3 +1,6 @@
+// Theme variables (must come before everything else)
+@use "themes";
+
 // Base
 @use "reset";
 
@@ -11,3 +14,4 @@
 @use "../src/pages/history";
 @use "../src/pages/login";
 @use "../src/pages/admin";
+@use "../src/pages/wod";

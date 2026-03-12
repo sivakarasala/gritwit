@@ -1,6 +1,8 @@
 mod health_check;
+mod upload;
 
 pub use health_check::health_check;
+pub use upload::upload_video;
 
 use utoipa::OpenApi;
 

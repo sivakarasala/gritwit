@@ -16,7 +16,7 @@
   font-family: 'Russo One', sans-serif;
   font-size: 3rem;
   font-weight: 400;
-  color: #e74c3c;
+  color: var(--accent);
   margin-bottom: 0.25rem;
   display: flex;
   align-items: center;
@@ -26,12 +26,12 @@
 
   .bolt-icon {
     margin: 0 -0.05rem;
-    filter: drop-shadow(0 0 4px rgba(241, 196, 15, 0.5));
+    filter: drop-shadow(0 0 4px rgba(var(--accent-rgb), 0.5));
   }
 }
 
 .login-tagline {
-  color: #888;
+  color: var(--text-dim);
   font-size: 0.9rem;
   margin-bottom: 2.5rem;
 }

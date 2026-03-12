@@ -1,0 +1,92 @@
+// ============================================
+// GrindIt Theme System
+// Dark: "Ember" — fiery orange on deep night
+// Light: "Himalayan Snow" — sky blue on crisp white
+// ============================================
+
+:root,
+[data-theme="dark"] {
+  // Backgrounds
+  --bg-base: #0f0f1a;
+  --bg-card: #1a1a2e;
+  --bg-input: #0f0f1a;
+  --bg-hover: #22223a;
+  --bg-deep: #0a0a14;
+
+  // Borders
+  --border: #2a2a3e;
+  --border-subtle: #1e1e32;
+  --border-hover: #2a2a4e;
+
+  // Text
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #cccccc;
+  --text-muted: #aaaaaa;
+  --text-dim: #888888;
+  --text-faint: #666666;
+  --text-subtle: #555555;
+  --text-placeholder: #444444;
+
+  // Accent — Ember orange
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+  --accent-glow: #fb923c;
+  --accent-rgb: 249, 115, 22;
+
+  // Flame icon
+  --flame: #ffd700;
+
+  // Overlay
+  --overlay: rgba(0, 0, 0, 0.65);
+
+  // Input filter (for date picker icon)
+  --input-filter: invert(0.7);
+
+  // Theme toggle icon (show sun in dark mode)
+  --toggle-icon-sun: block;
+  --toggle-icon-moon: none;
+}
+
+[data-theme="light"] {
+  // Backgrounds — fresh snow, misty mountain
+  --bg-base: #f0f4f8;
+  --bg-card: #ffffff;
+  --bg-input: #e8eef4;
+  --bg-hover: #dce4ec;
+  --bg-deep: #e0e8f0;
+
+  // Borders — ice edges
+  --border: #cdd9e5;
+  --border-subtle: #dde5ed;
+  --border-hover: #b8c8d8;
+
+  // Text — mountain rock
+  --text-primary: #1c2d3f;
+  --text-secondary: #2d4356;
+  --text-tertiary: #3a5068;
+  --text-muted: #5a7085;
+  --text-dim: #6b8299;
+  --text-faint: #7d94a8;
+  --text-subtle: #8fa3b8;
+  --text-placeholder: #a3b5c7;
+
+  // Accent — clear Himalayan sky
+  --accent: #0369a1;
+  --accent-hover: #075985;
+  --accent-glow: #0284c7;
+  --accent-rgb: 3, 105, 161;
+
+  // Flame icon
+  --flame: #f59e0b;
+
+  // Overlay
+  --overlay: rgba(0, 0, 0, 0.35);
+
+  // Input filter
+  --input-filter: none;
+
+  // Theme toggle icon (show moon in light mode)
+  --toggle-icon-sun: none;
+  --toggle-icon-moon: block;
+}

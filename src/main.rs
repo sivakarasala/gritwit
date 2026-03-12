@@ -6,7 +6,8 @@ async fn main() {
     use gritwit::app::*;
     use gritwit::auth::oauth::{self, OAuthState};
     use gritwit::configuration;
-    use gritwit::routes::{health_check, ApiDoc};
+    use axum::routing::post;
+    use gritwit::routes::{health_check, upload_video, ApiDoc};
     use gritwit::telemetry::{get_subscriber, init_subscriber};
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -58,7 +59,9 @@ async fn main() {
     let leptos_options = conf.leptos_options;
     let routes = generate_route_list(App);
 
-    let api_routes = Router::new().route("/health_check", get(health_check));
+    let api_routes = Router::new()
+        .route("/health_check", get(health_check))
+        .route("/upload/video", post(upload_video));
 
     let auth_routes = Router::new()
         .route("/auth/google/login", get(oauth::google_login))

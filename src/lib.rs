@@ -9,6 +9,8 @@ pub mod db;
 pub mod pages;
 #[cfg(feature = "hydrate")]
 pub mod pwa;
+#[cfg(feature = "hydrate")]
+pub mod voice;
 #[cfg(feature = "ssr")]
 pub mod routes;
 #[cfg(feature = "ssr")]

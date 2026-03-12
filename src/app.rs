@@ -1,5 +1,5 @@
 use crate::auth::{get_me, AuthUser, UserRole};
-use crate::pages::{AdminPage, ExercisesPage, HistoryPage, HomePage, LoginPage, LogWorkoutPage};
+use crate::pages::{AdminPage, ExercisesPage, HistoryPage, HomePage, LoginPage, LogWorkoutPage, WodPage};
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -16,7 +16,8 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
                 <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
                 <link rel="manifest" href="/manifest.json"/>
-                <meta name="theme-color" content="#e74c3c"/>
+                <meta name="theme-color" content="#0f0f1a"/>
+                <script>"(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t)})()"</script>
                 <link rel="preconnect" href="https://fonts.googleapis.com"/>
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
                 <link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet"/>
@@ -74,11 +75,24 @@ fn AuthenticatedApp(user: AuthUser) -> impl IntoView {
     view! {
         <header class="top-bar">
             <span class="top-bar__logo">"Grind"<span class="top-bar__flame"></span>"t"</span>
+            <div class="top-bar__actions">
+                <button class="theme-toggle" on:click=move |_| {
+                    #[cfg(feature = "hydrate")]
+                    { crate::voice::toggle_theme(); }
+                }>
+                    <span class="theme-icon theme-icon--sun"></span>
+                    <span class="theme-icon theme-icon--moon"></span>
+                </button>
+                <a href="/auth/logout" class="logout-btn">
+                    <span class="logout-icon"></span>
+                </a>
+            </div>
         </header>
         <main>
             <Routes fallback=|| "Page not found.".into_view()>
                 <Route path=StaticSegment("") view=HomePage/>
                 <Route path=StaticSegment("exercises") view=ExercisesPage/>
+                <Route path=StaticSegment("wod") view=WodPage/>
                 <Route path=StaticSegment("log") view=LogWorkoutPage/>
                 <Route path=StaticSegment("history") view=HistoryPage/>
                 <Route path=StaticSegment("admin") view=AdminPage/>
@@ -100,6 +114,10 @@ fn BottomNav(is_admin: bool) -> impl IntoView {
                 <span class="tab-icon tab-icon--exercises"></span>
                 <span class="tab-label">"Exercises"</span>
             </A>
+            <A href="/wod" attr:class="tab-item">
+                <span class="tab-icon tab-icon--wod"></span>
+                <span class="tab-label">"WOD"</span>
+            </A>
             <A href="/log" attr:class="tab-item">
                 <span class="tab-icon tab-icon--plus"></span>
                 <span class="tab-label">"Log"</span>
@@ -110,7 +128,7 @@ fn BottomNav(is_admin: bool) -> impl IntoView {
             </A>
             {is_admin.then(|| view! {
                 <A href="/admin" attr:class="tab-item">
-                    <span class="tab-icon tab-icon--home"></span>
+                    <span class="tab-icon tab-icon--admin"></span>
                     <span class="tab-label">"Admin"</span>
                 </A>
             })}

@@ -10,11 +10,71 @@ body {
     BlinkMacSystemFont,
     sans-serif;
   margin: 0;
-  background: #0f0f1a;
-  color: #e0e0e0;
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  transition: background 0.3s, color 0.3s;
 }
 
 main {
   padding-top: 3rem;
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+// Floating action button (shared across pages)
+.fab {
+  position: fixed;
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
+  right: 16px;
+  z-index: 99;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.25s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.5), 0 3px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.3);
+  }
+
+  &--active {
+    background: var(--text-dim);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+
+    .fab-icon {
+      transform: rotate(45deg);
+    }
+
+    &:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+  }
+}
+
+.fab-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  background-color: #fff;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  transition: transform 0.25s ease;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'/%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'/%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
 }
