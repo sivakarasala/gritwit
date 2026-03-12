@@ -517,7 +517,17 @@ fn WodMovementsPanel(
                                                             />
                                                         </div>
                                                         <div class="wod-mov-form-btns">
-                                                            <button type="submit" class="form-submit">"Save"</button>
+                                                            <button
+                                                                type="submit"
+                                                                class="form-submit"
+                                                                disabled=move || update_mov_action.pending().get()
+                                                            >
+                                                                {move || if update_mov_action.pending().get() {
+                                                                    view! { <span class="spinner"></span>" Saving..." }.into_any()
+                                                                } else {
+                                                                    view! { "Save" }.into_any()
+                                                                }}
+                                                            </button>
                                                             <button
                                                                 type="button"
                                                                 class="wod-cancel-btn"
@@ -639,7 +649,17 @@ fn WodMovementsPanel(
                                     />
                                 </div>
                                 <div class="wod-mov-form-btns">
-                                    <button type="submit" class="form-submit">"Add"</button>
+                                    <button
+                                        type="submit"
+                                        class="form-submit"
+                                        disabled=move || add_action.pending().get()
+                                    >
+                                        {move || if add_action.pending().get() {
+                                            view! { <span class="spinner"></span>" Adding..." }.into_any()
+                                        } else {
+                                            view! { "Add" }.into_any()
+                                        }}
+                                    </button>
                                     <button
                                         type="button"
                                         class="wod-cancel-btn"
@@ -721,7 +741,17 @@ fn WodForm(
                 prop:value=move || cap_input.get()
                 on:input=move |ev| cap_input.set(event_target_value(&ev))
             />
-            <button type="submit" class="form-submit">"Create WOD"</button>
+            <button
+                type="submit"
+                class="form-submit"
+                disabled=move || create_action.pending().get()
+            >
+                {move || if create_action.pending().get() {
+                    view! { <span class="spinner"></span>" Creating..." }.into_any()
+                } else {
+                    view! { "Create WOD" }.into_any()
+                }}
+            </button>
         </form>
     }
 }
@@ -843,7 +873,17 @@ fn WodCard(
                                 on:input=move |ev| edit_cap.set(event_target_value(&ev))
                             />
                             <div class="wod-edit-btns">
-                                <button type="submit" class="form-submit">"Save"</button>
+                                <button
+                                    type="submit"
+                                    class="form-submit"
+                                    disabled=move || update_action.pending().get()
+                                >
+                                    {move || if update_action.pending().get() {
+                                        view! { <span class="spinner"></span>" Saving..." }.into_any()
+                                    } else {
+                                        view! { "Save" }.into_any()
+                                    }}
+                                </button>
                                 <button
                                     type="button"
                                     class="wod-cancel-btn"

@@ -44,8 +44,13 @@ export async function upload_video_file(file_input_id) {
     if (!file.type.startsWith('video/')) {
         throw new Error('Only video files are allowed');
     }
-    if (file.size > 50 * 1024 * 1024) {
-        throw new Error('Video must be under 50MB');
+    const allowed = ['mp4', 'webm', 'mov', 'avi', 'm4v'];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!allowed.includes(ext)) {
+        throw new Error('Unsupported file type. Allowed: ' + allowed.join(', '));
+    }
+    if (file.size > 100 * 1024 * 1024) {
+        throw new Error('Video must be under 100 MB');
     }
     const form = new FormData();
     form.append('video', file);

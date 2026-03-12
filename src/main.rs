@@ -9,7 +9,7 @@ async fn main() {
     use gritwit::app::*;
     use gritwit::auth::oauth::{self, OAuthState};
     use gritwit::configuration;
-    use gritwit::routes::{health_check, upload_video, ApiDoc};
+    use gritwit::routes::{health_check, upload_video, ApiDoc, UploadState};
     use gritwit::storage::StorageBackend;
     use gritwit::telemetry::{get_subscriber, init_subscriber};
     use leptos::prelude::*;
@@ -72,10 +72,18 @@ async fn main() {
     let leptos_options = conf.leptos_options;
     let routes = generate_route_list(App);
 
+    let upload_state = UploadState {
+        storage,
+        pool: pool.clone(),
+    };
+
     let api_routes = Router::new()
         .route("/health_check", get(health_check))
-        .route("/upload/video", post(upload_video))
-        .with_state(storage);
+        .route(
+            "/upload/video",
+            post(upload_video).layer(axum::extract::DefaultBodyLimit::max(100 * 1024 * 1024)),
+        )
+        .with_state(upload_state);
 
     let auth_routes = Router::new()
         .route("/auth/google/login", get(oauth::google_login))

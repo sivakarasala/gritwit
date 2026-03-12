@@ -442,7 +442,17 @@ pub fn LogWorkoutPage() -> impl IntoView {
                     />
                 </div>
 
-                <button type="submit" class="submit-btn">"Post Result"</button>
+                <button
+                    type="submit"
+                    class="submit-btn"
+                    disabled=move || log_action.pending().get()
+                >
+                    {move || if log_action.pending().get() {
+                        view! { <span class="spinner"></span>" Posting..." }.into_any()
+                    } else {
+                        view! { "Post Result" }.into_any()
+                    }}
+                </button>
             </form>
 
             // Sticky voice FAB

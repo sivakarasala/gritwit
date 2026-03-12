@@ -191,6 +191,8 @@ GitHub Actions (`.github/workflows/`):
 - [x] Pre-commit hooks (fmt + clippy)
 - [x] Public pages (WOD, Exercises) accessible without sign-in
 - [x] PWA install banner (Android/desktop native prompt, iOS instructions)
+- [x] Upload validation (auth guard, magic bytes, extension allowlist, 100 MB body limit)
+- [x] Loading indicators on all server actions (spinners + disabled buttons)
 
 ### Pending
 
@@ -198,7 +200,6 @@ GitHub Actions (`.github/workflows/`):
 - [ ] **Rate limiting** -- add `tower_governor` or similar middleware to prevent abuse on auth and upload endpoints
 - [ ] **CORS policy** -- restrict allowed origins in production
 - [ ] **CSRF protection** -- add token validation for state-mutating server functions
-- [ ] **Upload validation** -- scan uploaded videos for malware, enforce stricter size/type limits
 - [ ] **Custom domain** -- move R2 public URL from r2.dev subdomain to a custom domain for caching + no rate limits
 - [ ] **Monitoring & alerting** -- integrate with Sentry, Datadog, or similar for error tracking
 - [ ] **Log aggregation** -- ship structured logs to a centralized service

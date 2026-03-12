@@ -60,6 +60,7 @@ pub fn AdminPage() -> impl IntoView {
                                                                     view! {
                                                                         <button
                                                                             class="role-btn role-btn--promote"
+                                                                            disabled=move || change_action.pending().get()
                                                                             on:click=move |_| {
                                                                                 change_action.dispatch(ChangeUserRole {
                                                                                     user_id: uid_promote.clone(),
@@ -73,6 +74,7 @@ pub fn AdminPage() -> impl IntoView {
                                                                     view! {
                                                                         <button
                                                                             class="role-btn role-btn--demote"
+                                                                            disabled=move || change_action.pending().get()
                                                                             on:click=move |_| {
                                                                                 change_action.dispatch(ChangeUserRole {
                                                                                     user_id: uid_demote.clone(),

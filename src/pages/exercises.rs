@@ -471,8 +471,18 @@ fn ExerciseForm(
                 upload_error=upload_error
             />
 
-            <button type="submit" class="form-submit" disabled=move || uploading.get()>
-                {move || if uploading.get() { "Uploading..." } else { "Add Movement" }}
+            <button
+                type="submit"
+                class="form-submit"
+                disabled=move || uploading.get() || create_action.pending().get()
+            >
+                {move || if uploading.get() {
+                    view! { <span class="spinner"></span>" Uploading..." }.into_any()
+                } else if create_action.pending().get() {
+                    view! { <span class="spinner"></span>" Saving..." }.into_any()
+                } else {
+                    view! { "Add Movement" }.into_any()
+                }}
             </button>
         </form>
     }
@@ -543,7 +553,7 @@ fn VideoUpload(
                     <input
                         type="file"
                         id="exercise-video-input"
-                        accept="video/*"
+                        accept=".mp4,.webm,.mov,.avi,.m4v"
                         class="video-file-input"
                         on:change=move |ev| {
                             let val = event_target_value(&ev);
