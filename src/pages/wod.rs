@@ -30,7 +30,11 @@ async fn create_wod(
     } else {
         time_cap_minutes.parse::<i32>().ok()
     };
-    let desc = if description.is_empty() { None } else { Some(description.as_str()) };
+    let desc = if description.is_empty() {
+        None
+    } else {
+        Some(description.as_str())
+    };
     crate::db::create_wod_db(
         &pool,
         &title,
@@ -86,13 +90,31 @@ async fn add_wod_movement(
     let ex_uuid: uuid::Uuid = exercise_id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    let reps_opt = if reps.is_empty() { None } else { reps.parse::<i32>().ok() };
-    let sets_opt = if sets.is_empty() { None } else { sets.parse::<i32>().ok() };
-    let weight_opt = if weight_kg.is_empty() { None } else { weight_kg.parse::<f32>().ok() };
-    let notes_opt = if notes.is_empty() { None } else { Some(notes.as_str()) };
-    crate::db::add_wod_movement_db(&pool, wod_uuid, ex_uuid, reps_opt, sets_opt, weight_opt, notes_opt, 0)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+    let reps_opt = if reps.is_empty() {
+        None
+    } else {
+        reps.parse::<i32>().ok()
+    };
+    let sets_opt = if sets.is_empty() {
+        None
+    } else {
+        sets.parse::<i32>().ok()
+    };
+    let weight_opt = if weight_kg.is_empty() {
+        None
+    } else {
+        weight_kg.parse::<f32>().ok()
+    };
+    let notes_opt = if notes.is_empty() {
+        None
+    } else {
+        Some(notes.as_str())
+    };
+    crate::db::add_wod_movement_db(
+        &pool, wod_uuid, ex_uuid, reps_opt, sets_opt, weight_opt, notes_opt, 0,
+    )
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
 #[server]
@@ -119,23 +141,23 @@ async fn list_exercises_for_wod() -> Result<Vec<(String, String)>, ServerFnError
 
 fn wod_type_label(t: &str) -> &'static str {
     match t {
-        "amrap"    => "AMRAP",
-        "fortime"  => "FOR TIME",
-        "emom"     => "EMOM",
-        "tabata"   => "TABATA",
+        "amrap" => "AMRAP",
+        "fortime" => "FOR TIME",
+        "emom" => "EMOM",
+        "tabata" => "TABATA",
         "strength" => "STRENGTH",
-        _          => "CUSTOM",
+        _ => "CUSTOM",
     }
 }
 
 fn wod_type_class(t: &str) -> &'static str {
     match t {
-        "amrap"    => "wod-badge--amrap",
-        "fortime"  => "wod-badge--fortime",
-        "emom"     => "wod-badge--emom",
-        "tabata"   => "wod-badge--tabata",
+        "amrap" => "wod-badge--amrap",
+        "fortime" => "wod-badge--fortime",
+        "emom" => "wod-badge--emom",
+        "tabata" => "wod-badge--tabata",
         "strength" => "wod-badge--strength",
-        _          => "wod-badge--custom",
+        _ => "wod-badge--custom",
     }
 }
 
@@ -179,9 +201,10 @@ pub fn WodPage() -> impl IntoView {
             >
                 <span class="fab-icon"></span>
             </button>
-        }.into_any()
+        }
+        .into_any()
     } else {
-        view! { }.into_any()
+        ().into_view().into_any()
     };
 
     let form_view = move || {
@@ -196,9 +219,10 @@ pub fn WodPage() -> impl IntoView {
                     cap_input=cap_input
                     date_input=date_input
                 />
-            }.into_any()
+            }
+            .into_any()
         } else {
-            view! { }.into_any()
+            ().into_view().into_any()
         }
     };
 
@@ -236,7 +260,8 @@ pub fn WodPage() -> impl IntoView {
                 }.into_any(),
             })}
         </Suspense>
-    }.into_any();
+    }
+    .into_any();
 
     let wod_modal = view! {
         <WodDeleteModal
@@ -247,7 +272,8 @@ pub fn WodPage() -> impl IntoView {
             sub="All movements will also be removed. This cannot be undone."
             btn_label="Delete"
         />
-    }.into_any();
+    }
+    .into_any();
 
     let mov_modal = view! {
         <MovDeleteModal
@@ -255,7 +281,8 @@ pub fn WodPage() -> impl IntoView {
             pending_delete_id=pending_delete_mov_id
             delete_action=del_mov_action
         />
-    }.into_any();
+    }
+    .into_any();
 
     view! {
         <div class="wod-page">
@@ -280,7 +307,13 @@ fn WodMovementsPanel(
 
     let wid_resource = wod_id.clone();
     let movements = Resource::new(
-        move || (wid_resource.clone(), add_action.version().get(), del_mov_version.get()),
+        move || {
+            (
+                wid_resource.clone(),
+                add_action.version().get(),
+                del_mov_version.get(),
+            )
+        },
         |(id, _, _)| get_wod_movements(id),
     );
 

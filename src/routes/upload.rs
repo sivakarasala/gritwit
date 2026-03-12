@@ -25,17 +25,17 @@ pub async fn upload_video(
             continue;
         }
 
-        let original_name = field
-            .file_name()
-            .unwrap_or("video.mp4")
-            .to_string();
+        let original_name = field.file_name().unwrap_or("video.mp4").to_string();
 
         let content_type = field
             .content_type()
             .unwrap_or("application/octet-stream")
             .to_string();
         if !content_type.starts_with("video/") {
-            return Err((StatusCode::BAD_REQUEST, "Only video files are allowed".into()));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Only video files are allowed".into(),
+            ));
         }
 
         let ext = std::path::Path::new(&original_name)
@@ -44,13 +44,18 @@ pub async fn upload_video(
             .unwrap_or("mp4");
         let key = format!("{}.{}", uuid::Uuid::new_v4(), ext);
 
-        let data = field
-            .bytes()
-            .await
-            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read file: {}", e)))?;
+        let data = field.bytes().await.map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Failed to read file: {}", e),
+            )
+        })?;
 
         if data.len() > 50 * 1024 * 1024 {
-            return Err((StatusCode::PAYLOAD_TOO_LARGE, "Video must be under 50MB".into()));
+            return Err((
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "Video must be under 50MB".into(),
+            ));
         }
 
         let url = storage

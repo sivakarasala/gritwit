@@ -145,6 +145,7 @@ pub async fn list_exercises_db(pool: &sqlx::PgPool) -> Result<Vec<Exercise>, sql
 }
 
 #[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_exercise_db(
     pool: &sqlx::PgPool,
     name: &str,
@@ -204,6 +205,7 @@ pub async fn list_workout_logs_db(
 }
 
 #[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_workout_log_db(
     pool: &sqlx::PgPool,
     user_id: uuid::Uuid,
@@ -235,6 +237,7 @@ pub async fn create_workout_log_db(
 }
 
 #[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
 pub async fn add_workout_exercise_db(
     pool: &sqlx::PgPool,
     workout_log_id: uuid::Uuid,
@@ -294,7 +297,10 @@ pub async fn count_exercises_db(pool: &sqlx::PgPool) -> Result<i64, sqlx::Error>
 }
 
 #[cfg(feature = "ssr")]
-pub async fn count_workouts_db(pool: &sqlx::PgPool, user_id: uuid::Uuid) -> Result<i64, sqlx::Error> {
+pub async fn count_workouts_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+) -> Result<i64, sqlx::Error> {
     let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM workout_logs WHERE user_id = $1")
         .bind(user_id)
         .fetch_one(pool)
@@ -349,7 +355,10 @@ pub struct LeaderboardEntry {
 }
 
 #[cfg(feature = "ssr")]
-pub async fn leaderboard_db(pool: &sqlx::PgPool, limit: i64) -> Result<Vec<LeaderboardEntry>, sqlx::Error> {
+pub async fn leaderboard_db(
+    pool: &sqlx::PgPool,
+    limit: i64,
+) -> Result<Vec<LeaderboardEntry>, sqlx::Error> {
     // Simple leaderboard: users ranked by total workouts logged this week
     let rows: Vec<(String, Option<String>, i64)> = sqlx::query_as(
         r#"SELECT u.display_name, u.avatar_url, COUNT(wl.id) as workout_count
@@ -365,9 +374,16 @@ pub async fn leaderboard_db(pool: &sqlx::PgPool, limit: i64) -> Result<Vec<Leade
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|(display_name, avatar_url, workout_count)| {
-        LeaderboardEntry { display_name, avatar_url, workout_count }
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(
+            |(display_name, avatar_url, workout_count)| LeaderboardEntry {
+                display_name,
+                avatar_url,
+                workout_count,
+            },
+        )
+        .collect())
 }
 
 /// Get workouts for a specific date, scoped to user.
@@ -469,7 +485,10 @@ pub async fn delete_wod_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Result<(), sq
 }
 
 #[cfg(feature = "ssr")]
-pub async fn delete_wod_movement_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+pub async fn delete_wod_movement_db(
+    pool: &sqlx::PgPool,
+    id: uuid::Uuid,
+) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM wod_movements WHERE id = $1")
         .bind(id)
         .execute(pool)
@@ -496,6 +515,7 @@ pub async fn get_wod_movements_db(
 }
 
 #[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
 pub async fn add_wod_movement_db(
     pool: &sqlx::PgPool,
     wod_id: uuid::Uuid,

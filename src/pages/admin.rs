@@ -28,10 +28,7 @@ async fn change_user_role(user_id: String, new_role: String) -> Result<(), Serve
 #[component]
 pub fn AdminPage() -> impl IntoView {
     let change_action = ServerAction::<ChangeUserRole>::new();
-    let users = Resource::new(
-        move || change_action.version().get(),
-        |_| list_all_users(),
-    );
+    let users = Resource::new(move || change_action.version().get(), |_| list_all_users());
 
     view! {
         <div class="admin-page">

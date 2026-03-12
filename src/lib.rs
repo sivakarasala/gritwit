@@ -9,14 +9,14 @@ pub mod db;
 pub mod pages;
 #[cfg(feature = "hydrate")]
 pub mod pwa;
-#[cfg(feature = "hydrate")]
-pub mod voice;
 #[cfg(feature = "ssr")]
 pub mod routes;
 #[cfg(feature = "ssr")]
 pub mod storage;
 #[cfg(feature = "ssr")]
 pub mod telemetry;
+#[cfg(feature = "hydrate")]
+pub mod voice;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

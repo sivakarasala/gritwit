@@ -1,5 +1,8 @@
 use crate::auth::{get_me, AuthUser, UserRole};
-use crate::pages::{AdminPage, ExercisesPage, HistoryPage, HomePage, LoginPage, LogWorkoutPage, ProfilePage, WodPage};
+use crate::pages::{
+    AdminPage, ExercisesPage, HistoryPage, HomePage, LogWorkoutPage, LoginPage, ProfilePage,
+    WodPage,
+};
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{

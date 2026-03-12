@@ -28,7 +28,9 @@ async fn get_dashboard() -> Result<DashboardData, ServerFnError> {
     let streak = crate::db::streak_days_db(&pool, user_uuid)
         .await
         .unwrap_or(0);
-    let leaderboard = crate::db::leaderboard_db(&pool, 5).await.unwrap_or_default();
+    let leaderboard = crate::db::leaderboard_db(&pool, 5)
+        .await
+        .unwrap_or_default();
 
     let today = chrono::Local::now().date_naive();
     let day_name = today.format("%A").to_string();

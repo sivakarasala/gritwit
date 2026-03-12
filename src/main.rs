@@ -2,11 +2,11 @@
 #[tokio::main]
 async fn main() {
     use axum::routing::get;
+    use axum::routing::post;
     use axum::Router;
     use gritwit::app::*;
     use gritwit::auth::oauth::{self, OAuthState};
     use gritwit::configuration;
-    use axum::routing::post;
     use gritwit::routes::{health_check, upload_video, ApiDoc};
     use gritwit::storage::StorageBackend;
     use gritwit::telemetry::{get_subscriber, init_subscriber};
@@ -50,7 +50,9 @@ async fn main() {
     let session_layer = SessionManagerLayer::new(session_store)
         .with_secure(is_production)
         .with_same_site(SameSite::Lax)
-        .with_expiry(Expiry::OnInactivity(tower_sessions::cookie::time::Duration::hours(24)));
+        .with_expiry(Expiry::OnInactivity(
+            tower_sessions::cookie::time::Duration::hours(24),
+        ));
 
     // OAuth client
     let oauth_client = oauth::build_oauth_client(&app_config.oauth);

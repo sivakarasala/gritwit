@@ -5,7 +5,8 @@ use tower_sessions::Session;
 const USER_ID_KEY: &str = "user_id";
 
 pub async fn get_session() -> Result<Session, ServerFnError> {
-    let session: Session = leptos_axum::extract().await
+    let session: Session = leptos_axum::extract()
+        .await
         .map_err(|e| ServerFnError::new(format!("Session extraction failed: {}", e)))?;
     Ok(session)
 }

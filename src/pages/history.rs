@@ -19,7 +19,10 @@ pub struct HistoryData {
 }
 
 #[server]
-async fn get_history(week_offset: i64, selected_date: Option<String>) -> Result<HistoryData, ServerFnError> {
+async fn get_history(
+    week_offset: i64,
+    selected_date: Option<String>,
+) -> Result<HistoryData, ServerFnError> {
     use chrono::{Datelike, Duration, Local, NaiveDate, Weekday};
 
     let user = crate::auth::session::require_auth().await?;
@@ -57,13 +60,22 @@ async fn get_history(week_offset: i64, selected_date: Option<String>) -> Result<
 
     // Build week label like "Mar 2026" or "Feb - Mar 2026" if week spans months
     let week_sunday = week_monday + Duration::days(6);
-    let week_label = if week_monday.format("%b %Y").to_string() == week_sunday.format("%b %Y").to_string() {
-        week_monday.format("%B %Y").to_string()
-    } else if week_monday.year() == week_sunday.year() {
-        format!("{} - {}", week_monday.format("%b"), week_sunday.format("%b %Y"))
-    } else {
-        format!("{} - {}", week_monday.format("%b %Y"), week_sunday.format("%b %Y"))
-    };
+    let week_label =
+        if week_monday.format("%b %Y").to_string() == week_sunday.format("%b %Y").to_string() {
+            week_monday.format("%B %Y").to_string()
+        } else if week_monday.year() == week_sunday.year() {
+            format!(
+                "{} - {}",
+                week_monday.format("%b"),
+                week_sunday.format("%b %Y")
+            )
+        } else {
+            format!(
+                "{} - {}",
+                week_monday.format("%b %Y"),
+                week_sunday.format("%b %Y")
+            )
+        };
 
     // If a specific date is selected, filter to that date; otherwise show all for the week
     let workouts = if let Some(ref date_str) = selected_date {
@@ -157,9 +169,7 @@ pub fn HistoryPage() -> impl IntoView {
                                             {days.into_iter().map(|d| {
                                                 let date_val = d.full_date.clone();
                                                 let is_selected = selected_date.get() == Some(d.full_date.clone());
-                                                let active_class = if d.is_today && selected_date.get().is_none() {
-                                                    " active"
-                                                } else if is_selected {
+                                                let active_class = if is_selected || (d.is_today && selected_date.get().is_none()) {
                                                     " active"
                                                 } else {
                                                     ""

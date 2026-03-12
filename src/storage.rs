@@ -29,10 +29,7 @@ impl StorageBackend {
                     .expect("R2 secret_key required")
                     .expose_secret()
                     .clone();
-                let bucket_name = config
-                    .r2_bucket
-                    .as_ref()
-                    .expect("R2 bucket required");
+                let bucket_name = config.r2_bucket.as_ref().expect("R2 bucket required");
                 let public_url = config
                     .r2_public_url
                     .as_ref()

@@ -39,9 +39,18 @@ async fn create_exercise(
     } else {
         Some(demo_video_url.as_str())
     };
-    crate::db::create_exercise_db(&pool, &name, &category, mt, &[], desc, video, Some(user_uuid))
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+    crate::db::create_exercise_db(
+        &pool,
+        &name,
+        &category,
+        mt,
+        &[],
+        desc,
+        video,
+        Some(user_uuid),
+    )
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
 #[server]
@@ -127,13 +136,14 @@ pub fn ExercisesPage() -> impl IntoView {
         >
             <span class="fab-icon"></span>
         </button>
-    }.into_any();
+    }
+    .into_any();
 
     let form_view = move || {
         if show_form.get() {
             view! { <ExerciseForm create_action=create_action show_form=show_form/> }.into_any()
         } else {
-            view! { }.into_any()
+            ().into_view().into_any()
         }
     };
 
@@ -185,11 +195,13 @@ pub fn ExercisesPage() -> impl IntoView {
             pending_delete_id=pending_delete_id
             delete_action=delete_action
         />
-    }.into_any();
+    }
+    .into_any();
 
     let filter_view = view! {
         <FilterPills active_filter=active_filter/>
-    }.into_any();
+    }
+    .into_any();
 
     view! {
         <div class="exercises-page">

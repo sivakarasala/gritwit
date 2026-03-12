@@ -36,7 +36,11 @@ async fn log_workout(
         .id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    let wname = if name.is_empty() { None } else { Some(name.as_str()) };
+    let wname = if name.is_empty() {
+        None
+    } else {
+        Some(name.as_str())
+    };
     let wnotes = if notes.is_empty() {
         None
     } else {
@@ -45,14 +49,20 @@ async fn log_workout(
     let wduration: Option<i32> = duration_seconds.parse().ok();
 
     let workout_id = crate::db::create_workout_log_db(
-        &pool, user_uuid, &workout_date, &workout_type, wname, wnotes, wduration, is_rx,
+        &pool,
+        user_uuid,
+        &workout_date,
+        &workout_type,
+        wname,
+        wnotes,
+        wduration,
+        is_rx,
     )
     .await
     .map_err(|e| ServerFnError::new(e.to_string()))?;
 
     // Parse exercise entries from JSON
-    let entries: Vec<ExerciseEntry> =
-        serde_json::from_str(&exercises_json).unwrap_or_default();
+    let entries: Vec<ExerciseEntry> = serde_json::from_str(&exercises_json).unwrap_or_default();
 
     for (i, entry) in entries.iter().enumerate() {
         if entry.exercise_id.is_empty() {
@@ -72,15 +82,7 @@ async fn log_workout(
         };
 
         crate::db::add_workout_exercise_db(
-            &pool,
-            workout_id,
-            eid,
-            sets_val,
-            reps_val,
-            weight_val,
-            None,
-            i as i32,
-            enotes,
+            &pool, workout_id, eid, sets_val, reps_val, weight_val, None, i as i32, enotes,
         )
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
@@ -107,7 +109,8 @@ pub fn LogWorkoutPage() -> impl IntoView {
     let exercise_rows = RwSignal::new(vec![0u32]); // list of row IDs
 
     // Per-row signals stored in a reactive map
-    let row_exercise_id = StoredValue::new(std::collections::HashMap::<u32, RwSignal<String>>::new());
+    let row_exercise_id =
+        StoredValue::new(std::collections::HashMap::<u32, RwSignal<String>>::new());
     let row_sets = StoredValue::new(std::collections::HashMap::<u32, RwSignal<String>>::new());
     let row_reps = StoredValue::new(std::collections::HashMap::<u32, RwSignal<String>>::new());
     let row_weight = StoredValue::new(std::collections::HashMap::<u32, RwSignal<String>>::new());
@@ -115,11 +118,21 @@ pub fn LogWorkoutPage() -> impl IntoView {
 
     // Helper to ensure signals exist for a row
     let ensure_row = move |id: u32| {
-        row_exercise_id.update_value(|m| { m.entry(id).or_insert_with(|| RwSignal::new(String::new())); });
-        row_sets.update_value(|m| { m.entry(id).or_insert_with(|| RwSignal::new(String::new())); });
-        row_reps.update_value(|m| { m.entry(id).or_insert_with(|| RwSignal::new(String::new())); });
-        row_weight.update_value(|m| { m.entry(id).or_insert_with(|| RwSignal::new(String::new())); });
-        row_notes.update_value(|m| { m.entry(id).or_insert_with(|| RwSignal::new(String::new())); });
+        row_exercise_id.update_value(|m| {
+            m.entry(id).or_insert_with(|| RwSignal::new(String::new()));
+        });
+        row_sets.update_value(|m| {
+            m.entry(id).or_insert_with(|| RwSignal::new(String::new()));
+        });
+        row_reps.update_value(|m| {
+            m.entry(id).or_insert_with(|| RwSignal::new(String::new()));
+        });
+        row_weight.update_value(|m| {
+            m.entry(id).or_insert_with(|| RwSignal::new(String::new()));
+        });
+        row_notes.update_value(|m| {
+            m.entry(id).or_insert_with(|| RwSignal::new(String::new()));
+        });
     };
 
     // Initialize first row
@@ -163,12 +176,28 @@ pub fn LogWorkoutPage() -> impl IntoView {
             .iter()
             .filter_map(|&id| {
                 let eid = row_exercise_id.with_value(|m| m.get(&id).map(|s| s.get_untracked()))?;
-                let sets = row_sets.with_value(|m| m.get(&id).map(|s| s.get_untracked())).unwrap_or_default();
-                let reps = row_reps.with_value(|m| m.get(&id).map(|s| s.get_untracked())).unwrap_or_default();
-                let weight_kg = row_weight.with_value(|m| m.get(&id).map(|s| s.get_untracked())).unwrap_or_default();
-                let notes = row_notes.with_value(|m| m.get(&id).map(|s| s.get_untracked())).unwrap_or_default();
-                if eid.is_empty() { return None; }
-                Some(ExerciseEntry { exercise_id: eid, sets, reps, weight_kg, notes })
+                let sets = row_sets
+                    .with_value(|m| m.get(&id).map(|s| s.get_untracked()))
+                    .unwrap_or_default();
+                let reps = row_reps
+                    .with_value(|m| m.get(&id).map(|s| s.get_untracked()))
+                    .unwrap_or_default();
+                let weight_kg = row_weight
+                    .with_value(|m| m.get(&id).map(|s| s.get_untracked()))
+                    .unwrap_or_default();
+                let notes = row_notes
+                    .with_value(|m| m.get(&id).map(|s| s.get_untracked()))
+                    .unwrap_or_default();
+                if eid.is_empty() {
+                    return None;
+                }
+                Some(ExerciseEntry {
+                    exercise_id: eid,
+                    sets,
+                    reps,
+                    weight_kg,
+                    notes,
+                })
             })
             .collect();
 
@@ -303,10 +332,7 @@ pub fn LogWorkoutPage() -> impl IntoView {
                     <Suspense fallback=|| view! { <div class="exercise-row">"Loading exercises..."</div> }>
                         {move || {
                             exercises_resource.get().map(|result| {
-                                let exercise_list = match result {
-                                    Ok(list) => list,
-                                    Err(_) => vec![],
-                                };
+                                let exercise_list = result.unwrap_or_default();
                                 let exercise_list = StoredValue::new(exercise_list);
 
                                 view! {

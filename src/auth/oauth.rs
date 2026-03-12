@@ -3,8 +3,8 @@ use axum::{
     response::Redirect,
 };
 use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
-    RedirectUrl, Scope, TokenResponse, TokenUrl,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
+    TokenResponse, TokenUrl,
 };
 use serde::Deserialize;
 use tower_sessions::Session;
@@ -17,7 +17,10 @@ const CSRF_STATE_KEY: &str = "oauth_csrf_state";
 type ConfiguredClient = oauth2::Client<
     oauth2::basic::BasicErrorResponse,
     oauth2::StandardTokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
-    oauth2::StandardTokenIntrospectionResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
+    oauth2::StandardTokenIntrospectionResponse<
+        oauth2::EmptyExtraTokenFields,
+        oauth2::basic::BasicTokenType,
+    >,
     oauth2::StandardRevocableToken,
     oauth2::basic::BasicRevocationErrorResponse,
     oauth2::EndpointSet,
