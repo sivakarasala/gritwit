@@ -181,6 +181,34 @@ pub async fn delete_exercise_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Result<(
     Ok(())
 }
 
+#[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
+pub async fn update_exercise_db(
+    pool: &sqlx::PgPool,
+    id: uuid::Uuid,
+    name: &str,
+    category: &str,
+    movement_type: Option<&str>,
+    description: Option<&str>,
+    demo_video_url: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"UPDATE exercises
+           SET name = $2, category = $3, movement_type = $4,
+               description = $5, demo_video_url = $6
+           WHERE id = $1"#,
+    )
+    .bind(id)
+    .bind(name)
+    .bind(category)
+    .bind(movement_type)
+    .bind(description)
+    .bind(demo_video_url)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 // ---- Workout Log Queries ----
 
 #[cfg(feature = "ssr")]
@@ -424,6 +452,7 @@ pub struct Wod {
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 pub struct WodMovement {
     pub id: String,
+    pub exercise_id: String,
     pub exercise_name: String,
     pub reps: Option<i32>,
     pub sets: Option<i32>,
@@ -502,7 +531,7 @@ pub async fn get_wod_movements_db(
     wod_id: uuid::Uuid,
 ) -> Result<Vec<WodMovement>, sqlx::Error> {
     sqlx::query_as::<_, WodMovement>(
-        r#"SELECT wm.id::text, e.name as exercise_name,
+        r#"SELECT wm.id::text, wm.exercise_id::text, e.name as exercise_name,
                   wm.reps, wm.sets, wm.weight_kg, wm.notes, wm.sort_order
            FROM wod_movements wm
            JOIN exercises e ON e.id = wm.exercise_id
@@ -537,6 +566,63 @@ pub async fn add_wod_movement_db(
     .bind(weight_kg)
     .bind(notes)
     .bind(sort_order)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
+pub async fn update_wod_db(
+    pool: &sqlx::PgPool,
+    id: uuid::Uuid,
+    title: &str,
+    description: Option<&str>,
+    workout_type: &str,
+    time_cap_minutes: Option<i32>,
+    programmed_date: &str,
+) -> Result<(), sqlx::Error> {
+    let date: chrono::NaiveDate = programmed_date
+        .parse()
+        .map_err(|e| sqlx::Error::Protocol(format!("Invalid date: {}", e)))?;
+    sqlx::query(
+        r#"UPDATE wods
+           SET title = $2, description = $3, workout_type = $4,
+               time_cap_minutes = $5, programmed_date = $6, updated_at = now()
+           WHERE id = $1"#,
+    )
+    .bind(id)
+    .bind(title)
+    .bind(description)
+    .bind(workout_type)
+    .bind(time_cap_minutes)
+    .bind(date)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+pub async fn update_wod_movement_db(
+    pool: &sqlx::PgPool,
+    id: uuid::Uuid,
+    exercise_id: uuid::Uuid,
+    reps: Option<i32>,
+    sets: Option<i32>,
+    weight_kg: Option<f32>,
+    notes: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"UPDATE wod_movements
+           SET exercise_id = $2, reps = $3, sets = $4, weight_kg = $5, notes = $6
+           WHERE id = $1"#,
+    )
+    .bind(id)
+    .bind(exercise_id)
+    .bind(reps)
+    .bind(sets)
+    .bind(weight_kg)
+    .bind(notes)
     .execute(pool)
     .await?;
     Ok(())

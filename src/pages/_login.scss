@@ -1,5 +1,5 @@
 .login-page {
-  min-height: 100vh;
+  min-height: calc(100vh - 120px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,4 +59,18 @@
 .google-icon {
   display: flex;
   align-items: center;
+}
+
+.login-hint {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+
+    &:hover { text-decoration: underline; }
+  }
 }

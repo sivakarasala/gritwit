@@ -16,7 +16,7 @@ body {
 }
 
 main {
-  padding-top: 3rem;
+  padding-top: calc(3rem + env(safe-area-inset-top));
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
 

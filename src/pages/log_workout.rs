@@ -252,7 +252,7 @@ pub fn LogWorkoutPage() -> impl IntoView {
 
             // Type selector pills
             <div class="type-selector">
-                {["strength", "amrap", "emom", "for_time", "meditation", "breathing"].into_iter().map(|t| {
+                {["strength", "amrap", "emom", "for_time", "meditation"].into_iter().map(|t| {
                     let t_str = t.to_string();
                     let label = match t {
                         "strength" => "Strength",
@@ -260,7 +260,6 @@ pub fn LogWorkoutPage() -> impl IntoView {
                         "emom" => "EMOM",
                         "for_time" => "For Time",
                         "meditation" => "Meditation",
-                        "breathing" => "Breathing",
                         _ => t,
                     };
                     let t_active = t_str.clone();

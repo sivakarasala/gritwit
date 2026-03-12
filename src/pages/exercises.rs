@@ -3,7 +3,6 @@ use leptos::prelude::*;
 
 #[server]
 async fn list_exercises() -> Result<Vec<Exercise>, ServerFnError> {
-    let _user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
     crate::db::list_exercises_db(&pool)
         .await
@@ -54,6 +53,40 @@ async fn create_exercise(
 }
 
 #[server]
+async fn update_exercise(
+    id: String,
+    name: String,
+    category: String,
+    movement_type: String,
+    description: String,
+    demo_video_url: String,
+) -> Result<(), ServerFnError> {
+    let _user = crate::auth::session::require_auth().await?;
+    let pool = crate::db::db().await?;
+    let uuid: uuid::Uuid = id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    let mt = if movement_type.is_empty() {
+        None
+    } else {
+        Some(movement_type.as_str())
+    };
+    let desc = if description.is_empty() {
+        None
+    } else {
+        Some(description.as_str())
+    };
+    let video = if demo_video_url.is_empty() {
+        None
+    } else {
+        Some(demo_video_url.as_str())
+    };
+    crate::db::update_exercise_db(&pool, uuid, &name, &category, mt, desc, video)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+}
+
+#[server]
 async fn delete_exercise(id: String) -> Result<(), ServerFnError> {
     let _user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
@@ -93,51 +126,86 @@ fn to_embed_url(url: &str) -> Option<String> {
     None
 }
 
+/// Single source of truth for exercise categories.
+/// Each entry: (value, label, badge, css_class)
+const CATEGORIES: &[(&str, &str, &str, &str)] = &[
+    ("conditioning", "Conditioning", "CON", "badge--conditioning"),
+    ("gymnastics", "Gymnastics", "GYM", "badge--gymnastics"),
+    (
+        "weightlifting",
+        "Weightlifting",
+        "WL",
+        "badge--weightlifting",
+    ),
+    ("meditation", "Meditation", "MED", "badge--meditation"),
+    ("sports", "Sports", "SPT", "badge--sports"),
+];
+
 fn category_badge(cat: &str) -> &'static str {
-    match cat {
-        "crossfit" => "CF",
-        "strength" => "STR",
-        "meditation" => "MED",
-        "breathing" => "BRE",
-        _ => "GEN",
-    }
+    CATEGORIES
+        .iter()
+        .find(|(v, _, _, _)| *v == cat)
+        .map(|(_, _, b, _)| *b)
+        .unwrap_or("GEN")
 }
 
 fn category_class(cat: &str) -> &'static str {
-    match cat {
-        "crossfit" => "badge--crossfit",
-        "strength" => "badge--strength",
-        "meditation" => "badge--meditation",
-        "breathing" => "badge--breathing",
-        _ => "",
-    }
+    CATEGORIES
+        .iter()
+        .find(|(v, _, _, _)| *v == cat)
+        .map(|(_, _, _, c)| *c)
+        .unwrap_or("")
+}
+
+fn category_options() -> impl IntoView {
+    CATEGORIES
+        .iter()
+        .map(|(val, label, _, _)| {
+            view! { <option value={*val}>{*label}</option> }
+        })
+        .collect_view()
 }
 
 #[component]
 pub fn ExercisesPage() -> impl IntoView {
+    use crate::auth::AuthUser;
+    let is_authed = use_context::<AuthUser>().is_some();
+
     let create_action = ServerAction::<CreateExercise>::new();
     let delete_action = ServerAction::<DeleteExercise>::new();
+    let update_action = ServerAction::<UpdateExercise>::new();
 
     let exercises = Resource::new(
-        move || (create_action.version().get(), delete_action.version().get()),
+        move || {
+            (
+                create_action.version().get(),
+                delete_action.version().get(),
+                update_action.version().get(),
+            )
+        },
         |_| list_exercises(),
     );
 
     let active_filter = RwSignal::new("all".to_string());
     let show_form = RwSignal::new(false);
     let expanded_video = RwSignal::new(Option::<String>::None);
+    let editing_exercise: RwSignal<Option<String>> = RwSignal::new(None);
     let show_delete = RwSignal::new(false);
     let pending_delete_id = RwSignal::new(String::new());
 
-    let fab_view = view! {
-        <button
-            class={move || if show_form.get() { "fab fab--active" } else { "fab" }}
-            on:click=move |_| show_form.update(|v| *v = !*v)
-        >
-            <span class="fab-icon"></span>
-        </button>
-    }
-    .into_any();
+    let fab_view = if is_authed {
+        view! {
+            <button
+                class={move || if show_form.get() { "fab fab--active" } else { "fab" }}
+                on:click=move |_| show_form.update(|v| *v = !*v)
+            >
+                <span class="fab-icon"></span>
+            </button>
+        }
+        .into_any()
+    } else {
+        ().into_view().into_any()
+    };
 
     let form_view = move || {
         if show_form.get() {
@@ -174,8 +242,11 @@ pub fn ExercisesPage() -> impl IntoView {
                                             <ExerciseCard
                                                 exercise=ex
                                                 expanded_video=expanded_video
+                                                editing_exercise=editing_exercise
+                                                update_action=update_action
                                                 pending_delete_id=pending_delete_id
                                                 show_delete=show_delete
+                                                is_authed=is_authed
                                             />
                                         }
                                     }).collect_view()}
@@ -218,18 +289,11 @@ pub fn ExercisesPage() -> impl IntoView {
 fn FilterPills(active_filter: RwSignal<String>) -> impl IntoView {
     view! {
         <div class="filter-pills">
-            {["all", "crossfit", "strength", "meditation", "breathing"].into_iter().map(|cat| {
-                let cat_str = cat.to_string();
-                let label = match cat {
-                    "all" => "All",
-                    "crossfit" => "CrossFit",
-                    "strength" => "Strength",
-                    "meditation" => "Meditation",
-                    "breathing" => "Breathing",
-                    _ => cat,
-                };
-                let cat_active = cat_str.clone();
-                let cat_click = cat_str.clone();
+            {std::iter::once(("all", "All"))
+                .chain(CATEGORIES.iter().map(|(v, l, _, _)| (*v, *l)))
+                .map(|(cat, label)| {
+                let cat_active = cat.to_string();
+                let cat_click = cat.to_string();
                 view! {
                     <button
                         class="filter-pill"
@@ -250,7 +314,7 @@ fn ExerciseForm(
     show_form: RwSignal<bool>,
 ) -> impl IntoView {
     let name_input = RwSignal::new(String::new());
-    let category_input = RwSignal::new("crossfit".to_string());
+    let category_input = RwSignal::new("conditioning".to_string());
     let movement_type_input = RwSignal::new(String::new());
     let description_input = RwSignal::new(String::new());
     let video_url = RwSignal::new(String::new());
@@ -383,10 +447,7 @@ fn ExerciseForm(
                     prop:value=move || category_input.get()
                     on:change=move |ev| category_input.set(event_target_value(&ev))
                 >
-                    <option value="crossfit">"CrossFit"</option>
-                    <option value="strength">"Strength"</option>
-                    <option value="meditation">"Meditation"</option>
-                    <option value="breathing">"Breathing"</option>
+                    {category_options()}
                 </select>
                 <input
                     type="text"
@@ -439,7 +500,7 @@ fn VideoUpload(
                         upload_error.set(String::new());
                     }
                 >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                         <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
                     </svg>
                     " URL"
@@ -454,7 +515,7 @@ fn VideoUpload(
                         upload_error.set(String::new());
                     }
                 >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                         <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
                     </svg>
                     " File"
@@ -524,8 +585,11 @@ fn VideoUpload(
 fn ExerciseCard(
     exercise: Exercise,
     expanded_video: RwSignal<Option<String>>,
+    editing_exercise: RwSignal<Option<String>>,
+    update_action: ServerAction<UpdateExercise>,
     pending_delete_id: RwSignal<String>,
     show_delete: RwSignal<bool>,
+    is_authed: bool,
 ) -> impl IntoView {
     let id = exercise.id.clone();
     let cat = exercise.category.clone();
@@ -533,77 +597,294 @@ fn ExerciseCard(
     let badge_cls = category_class(&cat);
     let has_video = exercise.demo_video_url.is_some();
     let video_src = exercise.demo_video_url.clone().unwrap_or_default();
-    let card_id = exercise.id.clone();
+    let autoplay = RwSignal::new(false);
+    let is_playing = RwSignal::new(false);
+
+    let card_id_play = exercise.id.clone();
+    let card_id_play_icon = exercise.id.clone();
+    let card_id_toggle = exercise.id.clone();
+    let card_id_editing = exercise.id.clone();
+    let card_id_edit_btn = exercise.id.clone();
+    let card_id_submit = exercise.id.clone();
+
+    // Edit form signals
+    let edit_name = RwSignal::new(String::new());
+    let edit_category = RwSignal::new(String::new());
+    let edit_movement_type = RwSignal::new(String::new());
+    let edit_description = RwSignal::new(String::new());
+    let edit_video_url = RwSignal::new(String::new());
+
+    // Init values for pre-populating
+    let init_name = exercise.name.clone();
+    let init_cat = exercise.category.clone();
+    let init_mt = exercise.movement_type.clone().unwrap_or_default();
+    let init_desc = exercise.description.clone().unwrap_or_default();
+    let init_video = exercise.demo_video_url.clone().unwrap_or_default();
 
     view! {
-        <div class="exercise-card">
-            <div class="exercise-card-top">
-                <span class={format!("exercise-badge {}", badge_cls)}>{badge_text}</span>
-                <div class="exercise-card-actions">
-                    {has_video.then(|| {
-                        let vid = card_id.clone();
-                        view! {
-                            <button
-                                class="exercise-play"
-                                on:click=move |_| {
-                                    expanded_video.update(|v| {
-                                        if v.as_ref() == Some(&vid) {
-                                            *v = None;
+        <div
+            class=move || {
+                if has_video {
+                    "exercise-card exercise-card--has-video"
+                } else {
+                    "exercise-card"
+                }
+            }
+            on:click=move |_| {
+                if editing_exercise.get().is_some() { return; }
+                if !has_video { return; }
+                expanded_video.update(|v| {
+                    if v.as_ref() == Some(&card_id_toggle) {
+                        *v = None;
+                        is_playing.set(false);
+                        autoplay.set(false);
+                    } else {
+                        autoplay.set(false);
+                        *v = Some(card_id_toggle.clone());
+                    }
+                });
+            }
+        >
+            {
+                let card_id_submit_c = card_id_submit.clone();
+                let card_id_editing_c = card_id_editing.clone();
+                let card_id_edit_btn_c = card_id_edit_btn.clone();
+                let card_id_play_c = card_id_play.clone();
+                let card_id_play_icon_c = card_id_play_icon.clone();
+                let init_name_c2 = init_name.clone();
+                let init_cat_c2 = init_cat.clone();
+                let init_mt_c2 = init_mt.clone();
+                let init_desc_c2 = init_desc.clone();
+                let init_video_c2 = init_video.clone();
+                let id_c2 = id.clone();
+                let exercise_name_c = exercise.name.clone();
+                let exercise_mt_c = exercise.movement_type.clone();
+                let exercise_id_c = exercise.id.clone();
+                let video_src_c2 = video_src.clone();
+                let badge_text_c = badge_text;
+                let badge_cls_c = badge_cls;
+                move || {
+                let eid = card_id_submit_c.clone();
+                let eid_editing = card_id_editing_c.clone();
+                let eid_edit_btn = card_id_edit_btn_c.clone();
+                let cid_play = card_id_play_c.clone();
+                let cid_play_icon = card_id_play_icon_c.clone();
+                let iname = init_name_c2.clone();
+                let icat = init_cat_c2.clone();
+                let imt = init_mt_c2.clone();
+                let idesc = init_desc_c2.clone();
+                let ivideo = init_video_c2.clone();
+                let id_del = id_c2.clone();
+                let ex_name = exercise_name_c.clone();
+                let ex_mt = exercise_mt_c.clone();
+                let ex_id = exercise_id_c.clone();
+                let v_src = video_src_c2.clone();
+                let b_text = badge_text_c;
+                let b_cls = badge_cls_c;
+                if editing_exercise.get().as_ref() == Some(&eid_editing) {
+                    view! {
+                        <form
+                            class="exercise-edit-form"
+                            on:click=move |ev| ev.stop_propagation()
+                            on:submit=move |ev| {
+                                ev.prevent_default();
+                                let n = edit_name.get_untracked();
+                                if n.is_empty() { return; }
+                                update_action.dispatch(UpdateExercise {
+                                    id: eid.clone(),
+                                    name: n,
+                                    category: edit_category.get_untracked(),
+                                    movement_type: edit_movement_type.get_untracked(),
+                                    description: edit_description.get_untracked(),
+                                    demo_video_url: edit_video_url.get_untracked(),
+                                });
+                                editing_exercise.set(None);
+                            }
+                        >
+                            <input
+                                type="text"
+                                placeholder="Exercise name"
+                                prop:value=move || edit_name.get()
+                                on:input=move |ev| edit_name.set(event_target_value(&ev))
+                            />
+                            <div class="form-row">
+                                <select
+                                    prop:value=move || edit_category.get()
+                                    on:change=move |ev| edit_category.set(event_target_value(&ev))
+                                >
+                                    {category_options()}
+                                </select>
+                                <input
+                                    type="text"
+                                    placeholder="Type (e.g. Olympic)"
+                                    prop:value=move || edit_movement_type.get()
+                                    on:input=move |ev| edit_movement_type.set(event_target_value(&ev))
+                                />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Description (optional)"
+                                prop:value=move || edit_description.get()
+                                on:input=move |ev| edit_description.set(event_target_value(&ev))
+                            />
+                            <input
+                                type="text"
+                                placeholder="Video URL (optional)"
+                                prop:value=move || edit_video_url.get()
+                                on:input=move |ev| edit_video_url.set(event_target_value(&ev))
+                            />
+                            <div class="exercise-edit-btns">
+                                <button type="submit" class="form-submit">"Save"</button>
+                                <button
+                                    type="button"
+                                    class="wod-cancel-btn"
+                                    on:click=move |_| editing_exercise.set(None)
+                                >"Cancel"</button>
+                            </div>
+                        </form>
+                    }.into_any()
+                } else {
+                    let embed = to_embed_url(&v_src);
+                    view! {
+                        <div class="exercise-card-top">
+                            <span class={format!("exercise-badge {}", b_cls)}>{b_text}</span>
+                            <div class="exercise-card-actions" on:click=move |ev| ev.stop_propagation()>
+                                {has_video.then(|| {
+                                    let cid_p = cid_play.clone();
+
+                                    let cid_pi = cid_play_icon.clone();
+                                    view! {
+                                        <button
+                                            class=move || {
+                                                if is_playing.get() {
+                                                    "exercise-play exercise-play--active"
+                                                } else {
+                                                    "exercise-play"
+                                                }
+                                            }
+                                            on:click=move |_| {
+                                                let is_expanded = expanded_video.get().as_ref() == Some(&cid_p);
+                                                if is_expanded && is_playing.get() {
+                                                    expanded_video.set(None);
+                                                    is_playing.set(false);
+                                                    autoplay.set(false);
+                                                } else {
+                                                    autoplay.set(true);
+                                                    is_playing.set(true);
+                                                    expanded_video.set(Some(cid_p.clone()));
+                                                }
+                                            }
+                                        >
+                                            {move || {
+                                                if is_playing.get() && expanded_video.get().as_ref() == Some(&cid_pi) {
+                                                    view! {
+                                                        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                                                        </svg>
+                                                    }.into_any()
+                                                } else {
+                                                    view! {
+                                                        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                                            <path d="M8 5v14l11-7z"/>
+                                                        </svg>
+                                                    }.into_any()
+                                                }
+                                            }}
+                                        </button>
+                                    }
+                                })}
+                                {is_authed.then(|| {
+                                    let iname = iname.clone();
+                                    let icat = icat.clone();
+                                    let imt = imt.clone();
+                                    let idesc = idesc.clone();
+                                    let ivideo = ivideo.clone();
+                                    let eid_edit_btn = eid_edit_btn.clone();
+                                    let id_del = id_del.clone();
+                                    view! {
+                                        <button
+                                            class="exercise-edit-btn"
+                                            on:click=move |_| {
+                                                edit_name.set(iname.clone());
+                                                edit_category.set(icat.clone());
+                                                edit_movement_type.set(imt.clone());
+                                                edit_description.set(idesc.clone());
+                                                edit_video_url.set(ivideo.clone());
+                                                editing_exercise.set(Some(eid_edit_btn.clone()));
+                                            }
+                                        >"✎"</button>
+                                        <button
+                                            class="exercise-delete"
+                                            on:click=move |_| {
+                                                pending_delete_id.set(id_del.clone());
+                                                show_delete.set(true);
+                                            }
+                                        >"×"</button>
+                                    }
+                                })}
+                            </div>
+                        </div>
+                        <h3 class="exercise-name">{ex_name}</h3>
+                        {ex_mt.map(|mt| view! {
+                            <span class="exercise-type">{mt}</span>
+                        })}
+                        {
+                            let vid_id = ex_id.clone();
+                            let vid_src = v_src.clone();
+                            move || {
+                                let is_expanded = expanded_video.get().as_ref() == Some(&vid_id);
+                                let should_autoplay = autoplay.get();
+                                let embed_c = embed.clone();
+                                let vid_src_c = vid_src.clone();
+                                is_expanded.then(move || {
+                                    if let Some(ref embed_url) = embed_c {
+                                        let src = if should_autoplay {
+                                            let sep = if embed_url.contains('?') { "&" } else { "?" };
+                                            format!("{}{}autoplay=1", embed_url, sep)
                                         } else {
-                                            *v = Some(vid.clone());
-                                        }
-                                    });
-                                }
-                            >
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                    <path d="M8 5v14l11-7z"/>
-                                </svg>
-                            </button>
-                        }
-                    })}
-                    <button
-                        class="exercise-delete"
-                        on:click={
-                            let id = id.clone();
-                            move |_| {
-                                pending_delete_id.set(id.clone());
-                                show_delete.set(true);
+                                            embed_url.clone()
+                                        };
+                                        view! {
+                                            <iframe
+                                                class="exercise-video"
+                                                src={src}
+                                                allow="autoplay"
+                                            />
+                                        }.into_any()
+                                    } else if should_autoplay {
+                                            view! {
+                                                <video
+                                                    class="exercise-video"
+                                                    src={vid_src_c.clone()}
+                                                    controls
+                                                    autoplay
+                                                    playsinline
+                                                    preload="metadata"
+                                                    on:pause=move |_| is_playing.set(false)
+                                                    on:ended=move |_| is_playing.set(false)
+                                                    on:play=move |_| is_playing.set(true)
+                                                />
+                                            }.into_any()
+                                        } else {
+                                            view! {
+                                                <video
+                                                    class="exercise-video"
+                                                    src={vid_src_c.clone()}
+                                                    controls
+                                                    playsinline
+                                                    preload="metadata"
+                                                    on:pause=move |_| is_playing.set(false)
+                                                    on:ended=move |_| is_playing.set(false)
+                                                    on:play=move |_| is_playing.set(true)
+                                                />
+                                            }.into_any()
+                                    }
+                                })
                             }
                         }
-                    >"×"</button>
-                </div>
-            </div>
-            <h3 class="exercise-name">{exercise.name}</h3>
-            {exercise.movement_type.map(|mt| view! {
-                <span class="exercise-type">{mt}</span>
-            })}
-            {
-                let vid_id = exercise.id.clone();
-                let vid_src = video_src.clone();
-                let embed = to_embed_url(&vid_src);
-                move || {
-                    let is_expanded = expanded_video.get().as_ref() == Some(&vid_id);
-                    is_expanded.then(|| {
-                        if let Some(ref embed_url) = embed {
-                            view! {
-                                <iframe
-                                    class="exercise-video"
-                                    src={embed_url.clone()}
-                                />
-                            }.into_any()
-                        } else {
-                            view! {
-                                <video
-                                    class="exercise-video"
-                                    src={vid_src.clone()}
-                                    controls
-                                    playsinline
-                                    preload="metadata"
-                                />
-                            }.into_any()
-                        }
-                    })
+                    }.into_any()
                 }
+            }
             }
         </div>
     }

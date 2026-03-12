@@ -24,6 +24,13 @@ pub fn LoginPage() -> impl IntoView {
                     </span>
                     "Sign in with Google"
                 </a>
+                <p class="login-hint">
+                    "Or browse "
+                    <a href="/wod">"WOD"</a>
+                    " and "
+                    <a href="/exercises">"Exercises"</a>
+                    " without signing in"
+                </p>
             </div>
         </div>
     }

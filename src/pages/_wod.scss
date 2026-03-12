@@ -41,7 +41,10 @@
     display: flex;
     gap: 0.5rem;
 
-    input, select { flex: 1; }
+    input, select {
+      flex: 1;
+      min-width: 0;
+    }
   }
 }
 
@@ -61,10 +64,11 @@
   flex-direction: column;
   gap: 0.45rem;
   border: 1px solid var(--border-subtle);
-  transition: border-color 0.18s, background 0.3s;
+  transition: border-color 0.18s, background 0.2s;
+  cursor: pointer;
 
-  &:hover {
-    border-color: var(--border-hover);
+  &:active {
+    background: rgba(255, 255, 255, 0.03);
   }
 }
 
@@ -82,7 +86,7 @@
 
 .wod-card-actions {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.5rem;
   align-items: center;
 }
 
@@ -129,36 +133,15 @@
   font-weight: 600;
 }
 
-// Expand/collapse button
-.wod-expand-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-subtle);
-  font-size: 0.75rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-
-  &:hover {
-    border-color: var(--text-subtle);
-    color: var(--text-muted);
-  }
-}
-
 // Delete button
 .wod-delete {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 68, 68, 0.1);
-  color: #ff4444;
-  font-size: 1.1rem;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 1.5rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -166,7 +149,8 @@
   transition: all 0.15s;
 
   &:hover {
-    background: rgba(255, 68, 68, 0.2);
+    background: rgba(255, 68, 68, 0.12);
+    color: #ff6b6b;
   }
 }
 
@@ -216,8 +200,31 @@
   flex: 1;
 }
 
-.wod-mov-delete {
+.wod-mov-edit {
   margin-left: auto;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-placeholder);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  line-height: 1;
+  padding: 0;
+
+  &:hover {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+  }
+}
+
+.wod-mov-delete {
   flex-shrink: 0;
   width: 26px;
   height: 26px;
@@ -296,6 +303,9 @@
     background: var(--bg-card);
     color: var(--text-secondary);
     font-size: 0.85rem;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 
     &:focus {
       outline: none;
@@ -304,18 +314,10 @@
   }
 
   .form-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 0.4rem;
-
-    input { flex: 1; }
   }
-}
-
-.wod-mov-form-btns {
-  display: flex;
-  gap: 0.5rem;
-
-  .form-submit { flex: 1; }
 }
 
 .wod-cancel-btn {
@@ -332,6 +334,100 @@
   &:hover {
     border-color: var(--text-subtle);
     color: var(--text-muted);
+  }
+}
+
+// WOD edit button (in card actions)
+.wod-edit-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+  }
+}
+
+// Inline WOD edit form
+.wod-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+
+  input, select {
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: rgba(var(--accent-rgb), 0.5);
+    }
+
+    &::placeholder { color: var(--text-placeholder); }
+
+    &[type="date"]::-webkit-calendar-picker-indicator {
+      filter: var(--input-filter);
+      cursor: pointer;
+    }
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+}
+
+.wod-edit-btns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+// Inline movement edit form
+.wod-mov-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+
+  select, input {
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: rgba(var(--accent-rgb), 0.5);
+    }
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.4rem;
   }
 }
 
