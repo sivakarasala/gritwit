@@ -171,220 +171,99 @@ pub fn WodPage() -> impl IntoView {
     let pending_delete_mov_id = RwSignal::new(String::new());
     let del_mov_version = del_mov_action.version();
 
+    let fab_view = if is_coach {
+        view! {
+            <button
+                class={move || if show_form.get() { "fab fab--active" } else { "fab" }}
+                on:click=move |_| show_form.update(|v| *v = !*v)
+            >
+                <span class="fab-icon"></span>
+            </button>
+        }.into_any()
+    } else {
+        view! { }.into_any()
+    };
+
+    let form_view = move || {
+        if is_coach && show_form.get() {
+            view! {
+                <WodForm
+                    create_action=create_action
+                    show_form=show_form
+                    title_input=title_input
+                    desc_input=desc_input
+                    type_input=type_input
+                    cap_input=cap_input
+                    date_input=date_input
+                />
+            }.into_any()
+        } else {
+            view! { }.into_any()
+        }
+    };
+
+    let list_view = view! {
+        <Suspense fallback=|| view! { <p class="loading">"Loading WODs..."</p> }>
+            {move || wods.get().map(|result| match result {
+                Err(e) => view! {
+                    <p class="wod-error">{format!("Error: {}", e)}</p>
+                }.into_any(),
+                Ok(list) if list.is_empty() => view! {
+                    <div class="empty-state">
+                        <p class="empty-title">"No WODs programmed yet"</p>
+                        {is_coach.then(|| view! {
+                            <p class="empty-sub">"Use + to program today's WOD"</p>
+                        })}
+                    </div>
+                }.into_any(),
+                Ok(list) => view! {
+                    <div class="wod-list">
+                        {list.into_iter().map(|wod| {
+                            view! {
+                                <WodCard
+                                    wod=wod
+                                    is_coach=is_coach
+                                    expanded_wod=expanded_wod
+                                    pending_delete_wod_id=pending_delete_wod_id
+                                    show_delete_wod=show_delete_wod
+                                    del_mov_version=del_mov_version
+                                    show_delete_mov=show_delete_mov
+                                    pending_delete_mov_id=pending_delete_mov_id
+                                />
+                            }
+                        }).collect_view()}
+                    </div>
+                }.into_any(),
+            })}
+        </Suspense>
+    }.into_any();
+
+    let wod_modal = view! {
+        <WodDeleteModal
+            show_delete=show_delete_wod
+            pending_delete_id=pending_delete_wod_id
+            delete_action=delete_action
+            msg="Delete this WOD?"
+            sub="All movements will also be removed. This cannot be undone."
+            btn_label="Delete"
+        />
+    }.into_any();
+
+    let mov_modal = view! {
+        <MovDeleteModal
+            show_delete=show_delete_mov
+            pending_delete_id=pending_delete_mov_id
+            delete_action=del_mov_action
+        />
+    }.into_any();
+
     view! {
         <div class="wod-page">
-            {is_coach.then(|| view! {
-                <button
-                    class={move || if show_form.get() { "fab fab--active" } else { "fab" }}
-                    on:click=move |_| show_form.update(|v| *v = !*v)
-                >
-                    <span class="fab-icon"></span>
-                </button>
-            })}
-
-            {is_coach.then(move || view! {
-                {move || show_form.get().then(|| view! {
-                    <form
-                        class="wod-form"
-                        on:submit=move |ev| {
-                            ev.prevent_default();
-                            let t = title_input.get_untracked();
-                            if t.is_empty() { return; }
-                            create_action.dispatch(CreateWod {
-                                title: t,
-                                description: desc_input.get_untracked(),
-                                workout_type: type_input.get_untracked(),
-                                time_cap_minutes: cap_input.get_untracked(),
-                                programmed_date: date_input.get_untracked(),
-                            });
-                            title_input.set(String::new());
-                            desc_input.set(String::new());
-                            cap_input.set(String::new());
-                            show_form.set(false);
-                        }
-                    >
-                        <div class="form-row">
-                            <input
-                                type="date"
-                                prop:value=move || date_input.get()
-                                on:input=move |ev| date_input.set(event_target_value(&ev))
-                            />
-                            <select
-                                prop:value=move || type_input.get()
-                                on:change=move |ev| type_input.set(event_target_value(&ev))
-                            >
-                                <option value="fortime">"For Time"</option>
-                                <option value="amrap">"AMRAP"</option>
-                                <option value="emom">"EMOM"</option>
-                                <option value="tabata">"Tabata"</option>
-                                <option value="strength">"Strength"</option>
-                                <option value="custom">"Custom"</option>
-                            </select>
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="WOD title (e.g. Fran)"
-                            prop:value=move || title_input.get()
-                            on:input=move |ev| title_input.set(event_target_value(&ev))
-                        />
-                        <input
-                            type="text"
-                            placeholder="Description (optional)"
-                            prop:value=move || desc_input.get()
-                            on:input=move |ev| desc_input.set(event_target_value(&ev))
-                        />
-                        <input
-                            type="number"
-                            placeholder="Time cap (minutes)"
-                            prop:value=move || cap_input.get()
-                            on:input=move |ev| cap_input.set(event_target_value(&ev))
-                        />
-                        <button type="submit" class="form-submit">"Create WOD"</button>
-                    </form>
-                })}
-            })}
-
-            <Suspense fallback=|| view! { <p class="loading">"Loading WODs..."</p> }>
-                {move || wods.get().map(|result| match result {
-                    Err(e) => view! {
-                        <p class="wod-error">{format!("Error: {}", e)}</p>
-                    }.into_any(),
-                    Ok(list) if list.is_empty() => view! {
-                        <div class="empty-state">
-                            <p class="empty-title">"No WODs programmed yet"</p>
-                            {is_coach.then(|| view! {
-                                <p class="empty-sub">"Use + Create to program today's WOD"</p>
-                            })}
-                        </div>
-                    }.into_any(),
-                    Ok(list) => view! {
-                        <div class="wod-list">
-                            {list.into_iter().map(|wod| {
-                                let wid = wod.id.clone();
-                                let wid_del = wod.id.clone();
-                                let wid_exp = wod.id.clone();
-                                let wid_panel = wod.id.clone();
-                                let type_label = wod_type_label(&wod.workout_type);
-                                let type_cls = format!("wod-badge {}", wod_type_class(&wod.workout_type));
-                                let cap = wod.time_cap_minutes;
-                                let title = wod.title.clone();
-                                let desc = wod.description.clone();
-                                let date = wod.programmed_date.clone();
-                                view! {
-                                    <div class="wod-card">
-                                        <div class="wod-card-top">
-                                            <div class="wod-card-meta">
-                                                <span class={type_cls}>{type_label}</span>
-                                                <span class="wod-date">{date}</span>
-                                            </div>
-                                            <div class="wod-card-actions">
-                                                <button
-                                                    class="wod-expand-btn"
-                                                    on:click=move |_| {
-                                                        expanded_wod.update(|v| {
-                                                            if v.as_ref() == Some(&wid) {
-                                                                *v = None;
-                                                            } else {
-                                                                *v = Some(wid.clone());
-                                                            }
-                                                        });
-                                                    }
-                                                >
-                                                    {move || if expanded_wod.get().as_ref() == Some(&wid_exp) {
-                                                        "▲"
-                                                    } else {
-                                                        "▼"
-                                                    }}
-                                                </button>
-                                                {is_coach.then(|| view! {
-                                                    <button
-                                                        class="wod-delete"
-                                                        on:click=move |_| {
-                                                            pending_delete_wod_id.set(wid_del.clone());
-                                                            show_delete_wod.set(true);
-                                                        }
-                                                    >"×"</button>
-                                                })}
-                                            </div>
-                                        </div>
-                                        <h2 class="wod-title">{title}</h2>
-                                        {desc.map(|d| view! {
-                                            <p class="wod-desc">{d}</p>
-                                        })}
-                                        {cap.map(|c| view! {
-                                            <span class="wod-timecap">"⏱ "{c}" min"</span>
-                                        })}
-                                        {move || {
-                                            let is_exp = expanded_wod.get().as_ref() == Some(&wid_panel);
-                                            is_exp.then(|| view! {
-                                                <WodMovementsPanel
-                                                    wod_id=wid_panel.clone()
-                                                    is_coach=is_coach
-                                                    del_mov_version=del_mov_version
-                                                    show_delete_mov=show_delete_mov
-                                                    pending_delete_mov_id=pending_delete_mov_id
-                                                />
-                                            })
-                                        }}
-                                    </div>
-                                }
-                            }).collect_view()}
-                        </div>
-                    }.into_any(),
-                })}
-            </Suspense>
-
-            // WOD delete confirmation modal — always in DOM, shown/hidden via style
-            <div
-                class="confirm-overlay"
-                style=move || if show_delete_wod.get() { "display:flex" } else { "display:none" }
-                on:click=move |_| show_delete_wod.set(false)
-            >
-                <div class="confirm-dialog" on:click=move |ev| { ev.stop_propagation(); }>
-                    <p class="confirm-msg">"Delete this WOD?"</p>
-                    <p class="confirm-sub">"All movements will also be removed. This cannot be undone."</p>
-                    <div class="confirm-actions">
-                        <button
-                            class="confirm-cancel-btn"
-                            on:click=move |_| show_delete_wod.set(false)
-                        >"Cancel"</button>
-                        <button
-                            class="confirm-delete-btn"
-                            on:click=move |_| {
-                                delete_action.dispatch(DeleteWod { id: pending_delete_wod_id.get_untracked() });
-                                show_delete_wod.set(false);
-                            }
-                        >"Delete"</button>
-                    </div>
-                </div>
-            </div>
-
-            // Movement delete confirmation modal — always in DOM, shown/hidden via style
-            <div
-                class="confirm-overlay"
-                style=move || if show_delete_mov.get() { "display:flex" } else { "display:none" }
-                on:click=move |_| show_delete_mov.set(false)
-            >
-                <div class="confirm-dialog" on:click=move |ev| { ev.stop_propagation(); }>
-                    <p class="confirm-msg">"Remove this movement?"</p>
-                    <p class="confirm-sub">"This cannot be undone."</p>
-                    <div class="confirm-actions">
-                        <button
-                            class="confirm-cancel-btn"
-                            on:click=move |_| show_delete_mov.set(false)
-                        >"Cancel"</button>
-                        <button
-                            class="confirm-delete-btn"
-                            on:click=move |_| {
-                                del_mov_action.dispatch(DeleteWodMovement {
-                                    id: pending_delete_mov_id.get_untracked(),
-                                });
-                                show_delete_mov.set(false);
-                            }
-                        >"Remove"</button>
-                    </div>
-                </div>
-            </div>
+            {fab_view}
+            {form_view}
+            {list_view}
+            {wod_modal}
+            {mov_modal}
         </div>
     }
 }
@@ -544,6 +423,230 @@ fn WodMovementsPanel(
                     })}
                 </div>
             })}
+        </div>
+    }
+}
+
+#[component]
+fn WodForm(
+    create_action: ServerAction<CreateWod>,
+    show_form: RwSignal<bool>,
+    title_input: RwSignal<String>,
+    desc_input: RwSignal<String>,
+    type_input: RwSignal<String>,
+    cap_input: RwSignal<String>,
+    date_input: RwSignal<String>,
+) -> impl IntoView {
+    view! {
+        <form
+            class="wod-form"
+            on:submit=move |ev| {
+                ev.prevent_default();
+                let t = title_input.get_untracked();
+                if t.is_empty() { return; }
+                create_action.dispatch(CreateWod {
+                    title: t,
+                    description: desc_input.get_untracked(),
+                    workout_type: type_input.get_untracked(),
+                    time_cap_minutes: cap_input.get_untracked(),
+                    programmed_date: date_input.get_untracked(),
+                });
+                title_input.set(String::new());
+                desc_input.set(String::new());
+                cap_input.set(String::new());
+                show_form.set(false);
+            }
+        >
+            <div class="form-row">
+                <input
+                    type="date"
+                    prop:value=move || date_input.get()
+                    on:input=move |ev| date_input.set(event_target_value(&ev))
+                />
+                <select
+                    prop:value=move || type_input.get()
+                    on:change=move |ev| type_input.set(event_target_value(&ev))
+                >
+                    <option value="fortime">"For Time"</option>
+                    <option value="amrap">"AMRAP"</option>
+                    <option value="emom">"EMOM"</option>
+                    <option value="tabata">"Tabata"</option>
+                    <option value="strength">"Strength"</option>
+                    <option value="custom">"Custom"</option>
+                </select>
+            </div>
+            <input
+                type="text"
+                placeholder="WOD title (e.g. Fran)"
+                prop:value=move || title_input.get()
+                on:input=move |ev| title_input.set(event_target_value(&ev))
+            />
+            <input
+                type="text"
+                placeholder="Description (optional)"
+                prop:value=move || desc_input.get()
+                on:input=move |ev| desc_input.set(event_target_value(&ev))
+            />
+            <input
+                type="number"
+                placeholder="Time cap (minutes)"
+                prop:value=move || cap_input.get()
+                on:input=move |ev| cap_input.set(event_target_value(&ev))
+            />
+            <button type="submit" class="form-submit">"Create WOD"</button>
+        </form>
+    }
+}
+
+#[component]
+fn WodCard(
+    wod: Wod,
+    is_coach: bool,
+    expanded_wod: RwSignal<Option<String>>,
+    pending_delete_wod_id: RwSignal<String>,
+    show_delete_wod: RwSignal<bool>,
+    del_mov_version: RwSignal<usize>,
+    show_delete_mov: RwSignal<bool>,
+    pending_delete_mov_id: RwSignal<String>,
+) -> impl IntoView {
+    let wid = wod.id.clone();
+    let wid_del = wod.id.clone();
+    let wid_exp = wod.id.clone();
+    let wid_panel = wod.id.clone();
+    let type_label = wod_type_label(&wod.workout_type);
+    let type_cls = format!("wod-badge {}", wod_type_class(&wod.workout_type));
+    let cap = wod.time_cap_minutes;
+    let title = wod.title.clone();
+    let desc = wod.description.clone();
+    let date = wod.programmed_date.clone();
+
+    view! {
+        <div class="wod-card">
+            <div class="wod-card-top">
+                <div class="wod-card-meta">
+                    <span class={type_cls}>{type_label}</span>
+                    <span class="wod-date">{date}</span>
+                </div>
+                <div class="wod-card-actions">
+                    <button
+                        class="wod-expand-btn"
+                        on:click=move |_| {
+                            expanded_wod.update(|v| {
+                                if v.as_ref() == Some(&wid) {
+                                    *v = None;
+                                } else {
+                                    *v = Some(wid.clone());
+                                }
+                            });
+                        }
+                    >
+                        {move || if expanded_wod.get().as_ref() == Some(&wid_exp) {
+                            "▲"
+                        } else {
+                            "▼"
+                        }}
+                    </button>
+                    {is_coach.then(|| view! {
+                        <button
+                            class="wod-delete"
+                            on:click=move |_| {
+                                pending_delete_wod_id.set(wid_del.clone());
+                                show_delete_wod.set(true);
+                            }
+                        >"×"</button>
+                    })}
+                </div>
+            </div>
+            <h2 class="wod-title">{title}</h2>
+            {desc.map(|d| view! {
+                <p class="wod-desc">{d}</p>
+            })}
+            {cap.map(|c| view! {
+                <span class="wod-timecap">"⏱ "{c}" min"</span>
+            })}
+            {move || {
+                let is_exp = expanded_wod.get().as_ref() == Some(&wid_panel);
+                is_exp.then(|| view! {
+                    <WodMovementsPanel
+                        wod_id=wid_panel.clone()
+                        is_coach=is_coach
+                        del_mov_version=del_mov_version
+                        show_delete_mov=show_delete_mov
+                        pending_delete_mov_id=pending_delete_mov_id
+                    />
+                })
+            }}
+        </div>
+    }
+}
+
+#[component]
+fn WodDeleteModal(
+    show_delete: RwSignal<bool>,
+    pending_delete_id: RwSignal<String>,
+    delete_action: ServerAction<DeleteWod>,
+    #[prop(into)] msg: String,
+    #[prop(into)] sub: String,
+    #[prop(into)] btn_label: String,
+) -> impl IntoView {
+    view! {
+        <div
+            class="confirm-overlay"
+            style=move || if show_delete.get() { "display:flex" } else { "display:none" }
+            on:click=move |_| show_delete.set(false)
+        >
+            <div class="confirm-dialog" on:click=move |ev| { ev.stop_propagation(); }>
+                <p class="confirm-msg">{msg}</p>
+                <p class="confirm-sub">{sub}</p>
+                <div class="confirm-actions">
+                    <button
+                        class="confirm-cancel-btn"
+                        on:click=move |_| show_delete.set(false)
+                    >"Cancel"</button>
+                    <button
+                        class="confirm-delete-btn"
+                        on:click=move |_| {
+                            delete_action.dispatch(DeleteWod { id: pending_delete_id.get_untracked() });
+                            show_delete.set(false);
+                        }
+                    >{btn_label.clone()}</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+#[component]
+fn MovDeleteModal(
+    show_delete: RwSignal<bool>,
+    pending_delete_id: RwSignal<String>,
+    delete_action: ServerAction<DeleteWodMovement>,
+) -> impl IntoView {
+    view! {
+        <div
+            class="confirm-overlay"
+            style=move || if show_delete.get() { "display:flex" } else { "display:none" }
+            on:click=move |_| show_delete.set(false)
+        >
+            <div class="confirm-dialog" on:click=move |ev| { ev.stop_propagation(); }>
+                <p class="confirm-msg">"Remove this movement?"</p>
+                <p class="confirm-sub">"This cannot be undone."</p>
+                <div class="confirm-actions">
+                    <button
+                        class="confirm-cancel-btn"
+                        on:click=move |_| show_delete.set(false)
+                    >"Cancel"</button>
+                    <button
+                        class="confirm-delete-btn"
+                        on:click=move |_| {
+                            delete_action.dispatch(DeleteWodMovement {
+                                id: pending_delete_id.get_untracked(),
+                            });
+                            show_delete.set(false);
+                        }
+                    >"Remove"</button>
+                </div>
+            </div>
         </div>
     }
 }

@@ -42,8 +42,12 @@ async fn main() {
         .await
         .expect("Could not run session store migration");
 
+    let is_production = std::env::var("APP_ENVIRONMENT")
+        .unwrap_or_default()
+        .eq_ignore_ascii_case("production");
+
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // Set to true in production with HTTPS
+        .with_secure(is_production)
         .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(tower_sessions::cookie::time::Duration::hours(24)));
 
