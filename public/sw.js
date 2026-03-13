@@ -1,11 +1,9 @@
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = "v6";
 const STATIC_CACHE = `grindit-static-${CACHE_VERSION}`;
 
-const PRECACHE_URLS = [
-  '/manifest.json',
-];
+const PRECACHE_URLS = ["/manifest.json"];
 
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(PRECACHE_URLS);
@@ -14,12 +12,14 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => key.startsWith('grindit-static-') && key !== STATIC_CACHE)
+          .filter(
+            (key) => key.startsWith("grindit-static-") && key !== STATIC_CACHE
+          )
           .map((key) => caches.delete(key))
       );
     })
@@ -27,21 +27,23 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
   if (url.origin !== location.origin) return;
-  if (event.request.method !== 'GET') return;
-  if (url.pathname.startsWith('/auth/')) return;
+  if (event.request.method !== "GET") return;
+  if (url.pathname.startsWith("/auth/")) return;
 
   // Navigation: network-first
-  if (event.request.mode === 'navigate') {
+  if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+            caches
+              .open(STATIC_CACHE)
+              .then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
@@ -56,7 +58,9 @@ self.addEventListener('fetch', (event) => {
       const fetchPromise = fetch(event.request).then((response) => {
         if (response.ok) {
           const clone = response.clone();
-          caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+          caches
+            .open(STATIC_CACHE)
+            .then((cache) => cache.put(event.request, clone));
         }
         return response;
       });

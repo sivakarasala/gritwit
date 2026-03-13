@@ -4,11 +4,13 @@
 
 :root {
   --header-h: calc(2.5rem + env(safe-area-inset-top, 0px));
-  --nav-h: calc(3rem + env(safe-area-inset-bottom, 0px));
+  --nav-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));
 }
 
-html {
-  overflow: clip;
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -20,7 +22,7 @@ body {
     sans-serif;
   margin: 0;
   width: 100%;
-  background: var(--bg-base);
+  background: var(--bg-card);
   color: var(--text-secondary);
   transition:
     background 0.3s,
@@ -34,6 +36,7 @@ main {
   -webkit-overflow-scrolling: touch;
   padding-top: var(--header-h);
   padding-bottom: var(--nav-h);
+  background: var(--bg-base);
 }
 
 // Floating action button (shared across pages)

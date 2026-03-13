@@ -10,7 +10,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.3s, border-color 0.3s;
+  transition:
+    background 0.3s,
+    border-color 0.3s;
 
   &__flame {
     display: inline-block;
@@ -28,14 +30,13 @@
   }
 
   &__logo {
-    font-family: 'Russo One', sans-serif;
+    font-family: "Russo One", sans-serif;
     font-size: 1.2rem;
     font-weight: 400;
     color: var(--accent);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
-
 
   &__actions {
     position: absolute;
@@ -58,7 +59,9 @@
   text-decoration: none;
   transition: background 0.2s;
 
-  &:hover { background: var(--accent-hover); }
+  &:hover {
+    background: var(--accent-hover);
+  }
 }
 
 // Theme toggle button
@@ -152,9 +155,11 @@
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: 0 0 env(safe-area-inset-bottom);
+  padding: 0.4rem 0 calc(0.4rem + env(safe-area-inset-bottom));
   z-index: 100;
-  transition: background 0.3s, border-color 0.3s;
+  transition:
+    background 0.3s,
+    border-color 0.3s;
 }
 
 .tab-item {
@@ -293,7 +298,9 @@
     white-space: nowrap;
     transition: background 0.2s;
 
-    &:hover { background: var(--accent-hover); }
+    &:hover {
+      background: var(--accent-hover);
+    }
   }
 
   &__close {
@@ -319,6 +326,12 @@
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

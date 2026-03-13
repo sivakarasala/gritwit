@@ -1,18 +1,18 @@
 .wod-page {
   max-width: 860px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0 1rem 1rem;
 }
 
 // ---- Weekly calendar ----
 
 .week-calendar {
   position: sticky;
-  top: var(--header-h);
+  top: 0;
   z-index: 10;
   background: var(--bg-base);
-  margin: 0 -1rem 0;
-  padding: 0.25rem 1rem 0.5rem;
+  margin: calc(-1 * var(--header-h)) -1rem 2.5rem;
+  padding: 1.25rem 1rem 0;
 }
 
 .week-cal-month {
