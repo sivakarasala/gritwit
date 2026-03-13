@@ -110,14 +110,20 @@ pub(crate) fn to_embed_url(url: &str) -> Option<String> {
         if let Some(pos) = url.find("v=") {
             let id = &url[pos + 2..];
             let id = id.split('&').next().unwrap_or(id);
-            return Some(format!("https://www.youtube.com/embed/{}", id));
+            return Some(format!(
+                "https://www.youtube.com/embed/{}?playsinline=1&enablejsapi=1",
+                id
+            ));
         }
     }
     if url.contains("youtu.be/") {
         if let Some(pos) = url.find("youtu.be/") {
             let id = &url[pos + 9..];
             let id = id.split('?').next().unwrap_or(id);
-            return Some(format!("https://www.youtube.com/embed/{}", id));
+            return Some(format!(
+                "https://www.youtube.com/embed/{}?playsinline=1&enablejsapi=1",
+                id
+            ));
         }
     }
     if url.contains("vimeo.com/") {

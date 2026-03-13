@@ -2,6 +2,11 @@
   box-sizing: border-box;
 }
 
+:root {
+  --header-h: calc(2rem + env(safe-area-inset-top, 0px));
+  --nav-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+
 html {
   overflow: clip;
 }
@@ -17,7 +22,9 @@ body {
   width: 100%;
   background: var(--bg-base);
   color: var(--text-secondary);
-  transition: background 0.3s, color 0.3s;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
 
 main {
@@ -25,8 +32,8 @@ main {
   inset: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-top: calc(3rem + env(safe-area-inset-top));
-  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  padding-top: var(--header-h);
+  padding-bottom: var(--nav-h);
 }
 
 // Floating action button (shared across pages)
@@ -45,12 +52,16 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 4px 14px rgba(var(--accent-rgb), 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.2);
   transition: all 0.25s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.5), 0 3px 6px rgba(0, 0, 0, 0.25);
+    box-shadow:
+      0 6px 20px rgba(var(--accent-rgb), 0.5),
+      0 3px 6px rgba(0, 0, 0, 0.25);
   }
 
   &:active {
@@ -74,7 +85,9 @@ main {
 
 // Loading spinner
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner {

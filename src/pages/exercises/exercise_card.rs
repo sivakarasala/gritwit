@@ -22,6 +22,7 @@ pub fn ExerciseCard(
     let badge_cls = category_class(&cat);
     let has_video = exercise.demo_video_url.is_some();
     let video_src = exercise.demo_video_url.clone().unwrap_or_default();
+    let is_embed = to_embed_url(&video_src).is_some();
     let autoplay = RwSignal::new(false);
     let is_playing = RwSignal::new(false);
 
@@ -188,13 +189,15 @@ pub fn ExerciseCard(
                                             }
                                             on:click=move |_| {
                                                 let is_expanded = expanded_video.get().as_ref() == Some(&cid_p);
-                                                if is_expanded && is_playing.get() {
+                                                if is_expanded {
                                                     expanded_video.set(None);
                                                     is_playing.set(false);
                                                     autoplay.set(false);
                                                 } else {
                                                     autoplay.set(true);
-                                                    is_playing.set(true);
+                                                    if !is_embed {
+                                                        is_playing.set(true);
+                                                    }
                                                     expanded_video.set(Some(cid_p.clone()));
                                                 }
                                             }
@@ -272,7 +275,8 @@ pub fn ExerciseCard(
                                             <iframe
                                                 class="exercise-video"
                                                 src={src}
-                                                allow="autoplay"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowfullscreen=true
                                             />
                                         }.into_any()
                                     } else if should_autoplay {

@@ -3,8 +3,9 @@
   top: 0;
   z-index: 80;
   background: var(--bg-base);
-  margin-bottom: 1rem;
-  padding-top: 0.5rem;
+  margin-top: calc(-1 * var(--header-h));
+  padding-top: calc(var(--header-h) + 0.25rem);
+  margin-bottom: 1.5rem;
   padding-bottom: 0.25rem;
 }
 
