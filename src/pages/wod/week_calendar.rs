@@ -1,7 +1,5 @@
 use leptos::prelude::*;
 
-use super::get_week_dates;
-
 const DAY_LABELS: [&str; 7] = ["S", "M", "T", "W", "T", "F", "S"];
 
 const MONTH_NAMES: [&str; 12] = [
@@ -19,70 +17,107 @@ const MONTH_NAMES: [&str; 12] = [
     "December",
 ];
 
+/// Get today's date as YYYY-MM-DD string.
+/// On the client (WASM) uses js_sys::Date; on the server uses chrono.
+pub(super) fn today_iso() -> String {
+    #[cfg(feature = "hydrate")]
+    {
+        let d = js_sys::Date::new_0();
+        format!(
+            "{:04}-{:02}-{:02}",
+            d.get_full_year(),
+            d.get_month() + 1,
+            d.get_date()
+        )
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        chrono::Local::now().date_naive().to_string()
+    }
+}
+
+/// Compute (today_iso, [sun..sat] iso strings) for the week containing `anchor`.
+fn compute_week_dates(anchor: &str) -> (String, Vec<String>) {
+    let today = today_iso();
+    let (y, m, d) = if anchor.is_empty() {
+        parse_ymd(&today)
+    } else {
+        parse_ymd(anchor)
+    };
+    let jdn = ymd_to_jdn(y, m, d);
+    // day_of_week: 0=Mon,1=Tue,...,6=Sun  →  we want Sunday-start
+    let dow = (jdn + 1) % 7; // 0=Sun,1=Mon,...,6=Sat
+    let sunday_jdn = jdn - dow;
+    let week: Vec<String> = (0..7)
+        .map(|i| {
+            let (ny, nm, nd) = jdn_to_ymd(sunday_jdn + i);
+            format!("{:04}-{:02}-{:02}", ny, nm, nd)
+        })
+        .collect();
+    (today, week)
+}
+
+fn parse_ymd(date: &str) -> (i64, i64, i64) {
+    let parts: Vec<&str> = date.split('-').collect();
+    let y = parts.first().and_then(|s| s.parse().ok()).unwrap_or(2026);
+    let m = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
+    let d = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
+    (y, m, d)
+}
+
 #[component]
 pub fn WeeklyCalendar(selected_date: RwSignal<String>) -> impl IntoView {
     let anchor = RwSignal::new(String::new());
 
-    let week = Resource::new(move || anchor.get(), get_week_dates);
-
-    Effect::new(move |_| {
-        if let Some(Ok((today, _))) = week.get() {
-            if selected_date.get_untracked().is_empty() {
-                selected_date.set(today);
-            }
-        }
-    });
+    // Compute week dates locally — no server call needed
+    let week = Memo::new(move |_| compute_week_dates(&anchor.get()));
 
     view! {
         <div class="week-calendar">
-            <Suspense fallback=|| ()>
-                {move || week.get().map(|res| match res {
-                    Err(_) => ().into_any(),
-                    Ok((today, dates)) => {
-                        let first = dates.first().cloned().unwrap_or_default();
-                        let last = dates.last().cloned().unwrap_or_default();
-                        let month_label = week_month_label(&first, &last);
-                        view! {
-                            <div class="week-cal-month">{month_label}</div>
-                            <div class="week-cal-row">
-                                <button
-                                    class="week-cal-nav"
-                                    on:click=move |_| anchor.set(shift_date(&first, -7))
-                                >"‹"</button>
+            {move || {
+                let (today, dates) = week.get();
+                let first = dates.first().cloned().unwrap_or_default();
+                let last = dates.last().cloned().unwrap_or_default();
+                let month_label = week_month_label(&first, &last);
+                view! {
+                    <div class="week-cal-month">{month_label}</div>
+                    <div class="week-cal-row">
+                        <button
+                            class="week-cal-nav"
+                            on:click=move |_| anchor.set(shift_date(&first, -7))
+                        >"‹"</button>
 
-                                <div class="week-cal-days">
-                                    {dates.into_iter().enumerate().map(|(i, date)| {
-                                        let day_num = date_day_num(&date);
-                                        let is_today = date == today;
-                                        let d = date.clone();
-                                        view! {
-                                            <button
-                                                class="week-cal-day"
-                                                class:selected=move || selected_date.get() == d
-                                                on:click={
-                                                    let d2 = date.clone();
-                                                    move |_| selected_date.set(d2.clone())
-                                                }
-                                            >
-                                                <span class="week-cal-label">{DAY_LABELS[i]}</span>
-                                                <span
-                                                    class="week-cal-num"
-                                                    class:today=is_today
-                                                >{day_num}</span>
-                                            </button>
+                        <div class="week-cal-days">
+                            {dates.into_iter().enumerate().map(|(i, date)| {
+                                let day_num = date_day_num(&date);
+                                let is_today = date == today;
+                                let d = date.clone();
+                                view! {
+                                    <button
+                                        class="week-cal-day"
+                                        class:selected=move || selected_date.get() == d
+                                        on:click={
+                                            let d2 = date.clone();
+                                            move |_| selected_date.set(d2.clone())
                                         }
-                                    }).collect_view()}
-                                </div>
+                                    >
+                                        <span class="week-cal-label">{DAY_LABELS[i]}</span>
+                                        <span
+                                            class="week-cal-num"
+                                            class:today=is_today
+                                        >{day_num}</span>
+                                    </button>
+                                }
+                            }).collect_view()}
+                        </div>
 
-                                <button
-                                    class="week-cal-nav"
-                                    on:click=move |_| anchor.set(shift_date(&last, 1))
-                                >"›"</button>
-                            </div>
-                        }.into_any()
-                    }
-                })}
-            </Suspense>
+                        <button
+                            class="week-cal-nav"
+                            on:click=move |_| anchor.set(shift_date(&last, 1))
+                        >"›"</button>
+                    </div>
+                }
+            }}
         </div>
     }
 }
@@ -126,20 +161,7 @@ fn parse_year_month(date: &str) -> (i64, i64) {
 }
 
 fn shift_date(date: &str, days: i64) -> String {
-    let parts: Vec<&str> = date.split('-').collect();
-    if parts.len() != 3 {
-        return date.to_string();
-    }
-    let Ok(y) = parts[0].parse::<i64>() else {
-        return date.to_string();
-    };
-    let Ok(m) = parts[1].parse::<i64>() else {
-        return date.to_string();
-    };
-    let Ok(d) = parts[2].parse::<i64>() else {
-        return date.to_string();
-    };
-
+    let (y, m, d) = parse_ymd(date);
     let jdn = ymd_to_jdn(y, m, d) + days;
     let (ny, nm, nd) = jdn_to_ymd(jdn);
     format!("{:04}-{:02}-{:02}", ny, nm, nd)

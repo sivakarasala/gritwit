@@ -32,26 +32,6 @@ pub(super) async fn list_wods_for_date(date: String) -> Result<Vec<Wod>, ServerF
         .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
-/// Returns (today_iso, [mon..sun] iso strings) for the week containing `anchor`.
-#[server]
-pub(super) async fn get_week_dates(anchor: String) -> Result<(String, Vec<String>), ServerFnError> {
-    use chrono::{Datelike, Duration, Local, NaiveDate};
-
-    let today = Local::now().date_naive().to_string();
-    let base = if anchor.is_empty() {
-        Local::now().date_naive()
-    } else {
-        NaiveDate::parse_from_str(&anchor, "%Y-%m-%d").unwrap_or_else(|_| Local::now().date_naive())
-    };
-    // Sunday = start of week
-    let days_from_sun = base.weekday().num_days_from_sunday();
-    let sunday = base - Duration::days(days_from_sun as i64);
-    let week: Vec<String> = (0..7)
-        .map(|i| (sunday + Duration::days(i)).to_string())
-        .collect();
-    Ok((today, week))
-}
-
 #[server]
 async fn create_wod(
     title: String,
@@ -458,7 +438,7 @@ pub fn WodPage() -> impl IntoView {
     let delete_action = ServerAction::<DeleteWod>::new();
     let update_action = ServerAction::<UpdateWod>::new();
 
-    let selected_date: RwSignal<String> = RwSignal::new(String::new());
+    let selected_date: RwSignal<String> = RwSignal::new(week_calendar::today_iso());
 
     let wods = Resource::new(
         move || {
