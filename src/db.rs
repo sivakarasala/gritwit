@@ -37,23 +37,9 @@ pub struct Exercise {
 pub struct WorkoutLog {
     pub id: String,
     pub workout_date: String,
-    pub workout_type: String,
-    pub name: Option<String>,
     pub notes: Option<String>,
-    pub duration_seconds: Option<i32>,
     pub is_rx: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
-pub struct WorkoutWithExerciseName {
-    pub id: String,
-    pub exercise_name: String,
-    pub sets: Option<i32>,
-    pub reps: Option<i32>,
-    pub weight_kg: Option<f32>,
-    pub duration_seconds: Option<i32>,
-    pub notes: Option<String>,
+    pub wod_id: Option<String>,
 }
 
 // ---- User Queries ----
@@ -218,9 +204,7 @@ pub async fn list_workout_logs_db(
     limit: i64,
 ) -> Result<Vec<WorkoutLog>, sqlx::Error> {
     sqlx::query_as::<_, WorkoutLog>(
-        r#"SELECT
-            id::text, workout_date::text, workout_type,
-            name, notes, duration_seconds, is_rx
+        r#"SELECT id::text, workout_date::text, notes, is_rx, wod_id::text
         FROM workout_logs
         WHERE user_id = $1
         ORDER BY workout_date DESC, created_at DESC
@@ -233,85 +217,30 @@ pub async fn list_workout_logs_db(
 }
 
 #[cfg(feature = "ssr")]
-#[allow(clippy::too_many_arguments)]
 pub async fn create_workout_log_db(
     pool: &sqlx::PgPool,
     user_id: uuid::Uuid,
+    wod_id: Option<uuid::Uuid>,
     workout_date: &str,
-    workout_type: &str,
-    name: Option<&str>,
     notes: Option<&str>,
-    duration_seconds: Option<i32>,
     is_rx: bool,
 ) -> Result<uuid::Uuid, sqlx::Error> {
     let date: chrono::NaiveDate = workout_date
         .parse()
         .map_err(|e| sqlx::Error::Protocol(format!("Invalid date: {}", e)))?;
     let row: (uuid::Uuid,) = sqlx::query_as(
-        r#"INSERT INTO workout_logs (user_id, workout_date, workout_type, name, notes, duration_seconds, is_rx)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        r#"INSERT INTO workout_logs (user_id, wod_id, workout_date, notes, is_rx)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id"#,
     )
     .bind(user_id)
+    .bind(wod_id)
     .bind(date)
-    .bind(workout_type)
-    .bind(name)
     .bind(notes)
-    .bind(duration_seconds)
     .bind(is_rx)
     .fetch_one(pool)
     .await?;
     Ok(row.0)
-}
-
-#[cfg(feature = "ssr")]
-#[allow(clippy::too_many_arguments)]
-pub async fn add_workout_exercise_db(
-    pool: &sqlx::PgPool,
-    workout_log_id: uuid::Uuid,
-    exercise_id: uuid::Uuid,
-    sets: Option<i32>,
-    reps: Option<i32>,
-    weight_kg: Option<f32>,
-    duration_seconds: Option<i32>,
-    sort_order: i32,
-    notes: Option<&str>,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        r#"INSERT INTO workout_exercises (workout_log_id, exercise_id, sets, reps, weight_kg, duration_seconds, sort_order, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
-    )
-    .bind(workout_log_id)
-    .bind(exercise_id)
-    .bind(sets)
-    .bind(reps)
-    .bind(weight_kg)
-    .bind(duration_seconds)
-    .bind(sort_order)
-    .bind(notes)
-    .execute(pool)
-    .await?;
-    Ok(())
-}
-
-#[cfg(feature = "ssr")]
-pub async fn get_workout_exercises_db(
-    pool: &sqlx::PgPool,
-    workout_log_id: uuid::Uuid,
-) -> Result<Vec<WorkoutWithExerciseName>, sqlx::Error> {
-    sqlx::query_as::<_, WorkoutWithExerciseName>(
-        r#"SELECT
-            we.id::text, e.name as exercise_name,
-            we.sets, we.reps, we.weight_kg,
-            we.duration_seconds, we.notes
-        FROM workout_exercises we
-        JOIN exercises e ON e.id = we.exercise_id
-        WHERE we.workout_log_id = $1
-        ORDER BY we.sort_order"#,
-    )
-    .bind(workout_log_id)
-    .fetch_all(pool)
-    .await
 }
 
 // ---- Stats Queries ----
@@ -422,9 +351,7 @@ pub async fn list_workouts_by_date_db(
     date: chrono::NaiveDate,
 ) -> Result<Vec<WorkoutLog>, sqlx::Error> {
     sqlx::query_as::<_, WorkoutLog>(
-        r#"SELECT
-            id::text, workout_date::text, workout_type,
-            name, notes, duration_seconds, is_rx
+        r#"SELECT id::text, workout_date::text, notes, is_rx, wod_id::text
         FROM workout_logs
         WHERE user_id = $1 AND workout_date = $2
         ORDER BY created_at DESC"#,
@@ -450,13 +377,28 @@ pub struct Wod {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct WodSection {
+    pub id: String,
+    pub wod_id: String,
+    pub phase: String,
+    pub title: Option<String>,
+    pub section_type: String,
+    pub time_cap_minutes: Option<i32>,
+    pub rounds: Option<i32>,
+    pub notes: Option<String>,
+    pub sort_order: i32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 pub struct WodMovement {
     pub id: String,
+    pub section_id: String,
     pub exercise_id: String,
     pub exercise_name: String,
-    pub reps: Option<i32>,
-    pub sets: Option<i32>,
-    pub weight_kg: Option<f32>,
+    pub rep_scheme: Option<String>,
+    pub weight_kg_male: Option<f32>,
+    pub weight_kg_female: Option<f32>,
     pub notes: Option<String>,
     pub sort_order: i32,
 }
@@ -471,6 +413,23 @@ pub async fn list_wods_db(pool: &sqlx::PgPool) -> Result<Vec<Wod>, sqlx::Error> 
            FROM wods
            ORDER BY programmed_date DESC, created_at DESC"#,
     )
+    .fetch_all(pool)
+    .await
+}
+
+#[cfg(feature = "ssr")]
+pub async fn list_wods_for_date_db(
+    pool: &sqlx::PgPool,
+    date: &str,
+) -> Result<Vec<Wod>, sqlx::Error> {
+    sqlx::query_as::<_, Wod>(
+        r#"SELECT id::text, title, description, workout_type,
+                  time_cap_minutes, programmed_date::text
+           FROM wods
+           WHERE programmed_date = $1::date
+           ORDER BY created_at ASC"#,
+    )
+    .bind(date)
     .fetch_all(pool)
     .await
 }
@@ -528,17 +487,17 @@ pub async fn delete_wod_movement_db(
 #[cfg(feature = "ssr")]
 pub async fn get_wod_movements_db(
     pool: &sqlx::PgPool,
-    wod_id: uuid::Uuid,
+    section_id: uuid::Uuid,
 ) -> Result<Vec<WodMovement>, sqlx::Error> {
     sqlx::query_as::<_, WodMovement>(
-        r#"SELECT wm.id::text, wm.exercise_id::text, e.name as exercise_name,
-                  wm.reps, wm.sets, wm.weight_kg, wm.notes, wm.sort_order
+        r#"SELECT wm.id::text, wm.section_id::text, wm.exercise_id::text, e.name as exercise_name,
+                  wm.rep_scheme, wm.weight_kg_male, wm.weight_kg_female, wm.notes, wm.sort_order
            FROM wod_movements wm
            JOIN exercises e ON e.id = wm.exercise_id
-           WHERE wm.wod_id = $1
+           WHERE wm.section_id = $1
            ORDER BY wm.sort_order, wm.created_at"#,
     )
-    .bind(wod_id)
+    .bind(section_id)
     .fetch_all(pool)
     .await
 }
@@ -547,23 +506,23 @@ pub async fn get_wod_movements_db(
 #[allow(clippy::too_many_arguments)]
 pub async fn add_wod_movement_db(
     pool: &sqlx::PgPool,
-    wod_id: uuid::Uuid,
+    section_id: uuid::Uuid,
     exercise_id: uuid::Uuid,
-    reps: Option<i32>,
-    sets: Option<i32>,
-    weight_kg: Option<f32>,
+    rep_scheme: Option<&str>,
+    weight_kg_male: Option<f32>,
+    weight_kg_female: Option<f32>,
     notes: Option<&str>,
     sort_order: i32,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
-        r#"INSERT INTO wod_movements (wod_id, exercise_id, reps, sets, weight_kg, notes, sort_order)
+        r#"INSERT INTO wod_movements (section_id, exercise_id, rep_scheme, weight_kg_male, weight_kg_female, notes, sort_order)
            VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
     )
-    .bind(wod_id)
+    .bind(section_id)
     .bind(exercise_id)
-    .bind(reps)
-    .bind(sets)
-    .bind(weight_kg)
+    .bind(rep_scheme)
+    .bind(weight_kg_male)
+    .bind(weight_kg_female)
     .bind(notes)
     .bind(sort_order)
     .execute(pool)
@@ -588,7 +547,7 @@ pub async fn update_wod_db(
     sqlx::query(
         r#"UPDATE wods
            SET title = $2, description = $3, workout_type = $4,
-               time_cap_minutes = $5, programmed_date = $6, updated_at = now()
+               time_cap_minutes = $5, programmed_date = $6
            WHERE id = $1"#,
     )
     .bind(id)
@@ -603,27 +562,117 @@ pub async fn update_wod_db(
 }
 
 #[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
 pub async fn update_wod_movement_db(
     pool: &sqlx::PgPool,
     id: uuid::Uuid,
     exercise_id: uuid::Uuid,
-    reps: Option<i32>,
-    sets: Option<i32>,
-    weight_kg: Option<f32>,
+    rep_scheme: Option<&str>,
+    weight_kg_male: Option<f32>,
+    weight_kg_female: Option<f32>,
     notes: Option<&str>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"UPDATE wod_movements
-           SET exercise_id = $2, reps = $3, sets = $4, weight_kg = $5, notes = $6
+           SET exercise_id = $2, rep_scheme = $3, weight_kg_male = $4, weight_kg_female = $5, notes = $6
            WHERE id = $1"#,
     )
     .bind(id)
     .bind(exercise_id)
-    .bind(reps)
-    .bind(sets)
-    .bind(weight_kg)
+    .bind(rep_scheme)
+    .bind(weight_kg_male)
+    .bind(weight_kg_female)
     .bind(notes)
     .execute(pool)
     .await?;
+    Ok(())
+}
+
+// ---- WOD Section Queries ----
+
+#[cfg(feature = "ssr")]
+pub async fn list_wod_sections_db(
+    pool: &sqlx::PgPool,
+    wod_id: uuid::Uuid,
+) -> Result<Vec<WodSection>, sqlx::Error> {
+    sqlx::query_as::<_, WodSection>(
+        r#"SELECT id::text, wod_id::text, phase::text, title, section_type::text,
+                  time_cap_minutes, rounds, notes, sort_order
+           FROM wod_sections
+           WHERE wod_id = $1
+           ORDER BY sort_order, created_at"#,
+    )
+    .bind(wod_id)
+    .fetch_all(pool)
+    .await
+}
+
+#[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
+pub async fn create_wod_section_db(
+    pool: &sqlx::PgPool,
+    wod_id: uuid::Uuid,
+    phase: &str,
+    title: Option<&str>,
+    section_type: &str,
+    time_cap_minutes: Option<i32>,
+    rounds: Option<i32>,
+    notes: Option<&str>,
+    sort_order: i32,
+) -> Result<uuid::Uuid, sqlx::Error> {
+    let row: (uuid::Uuid,) = sqlx::query_as(
+        r#"INSERT INTO wod_sections (wod_id, phase, title, section_type, time_cap_minutes, rounds, notes, sort_order)
+           VALUES ($1, $2::wod_phase, $3, $4::section_type, $5, $6, $7, $8)
+           RETURNING id"#,
+    )
+    .bind(wod_id)
+    .bind(phase)
+    .bind(title)
+    .bind(section_type)
+    .bind(time_cap_minutes)
+    .bind(rounds)
+    .bind(notes)
+    .bind(sort_order)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
+}
+
+#[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
+pub async fn update_wod_section_db(
+    pool: &sqlx::PgPool,
+    id: uuid::Uuid,
+    phase: &str,
+    title: Option<&str>,
+    section_type: &str,
+    time_cap_minutes: Option<i32>,
+    rounds: Option<i32>,
+    notes: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"UPDATE wod_sections
+           SET phase = $2::wod_phase, title = $3, section_type = $4::section_type,
+               time_cap_minutes = $5, rounds = $6, notes = $7
+           WHERE id = $1"#,
+    )
+    .bind(id)
+    .bind(phase)
+    .bind(title)
+    .bind(section_type)
+    .bind(time_cap_minutes)
+    .bind(rounds)
+    .bind(notes)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+pub async fn delete_wod_section_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM wod_sections WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
     Ok(())
 }

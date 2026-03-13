@@ -6,7 +6,7 @@ A workout tracking app inspired by SugarWOD, built with Rust. Features WOD progr
 
 ```
 src/
-  app.rs              # Root Leptos component, router, auth gate
+  app.rs              # Root Leptos component, router, reactive bottom nav, auth gate
   main.rs             # Axum server setup, middleware, route mounting
   lib.rs              # Crate root, WASM hydration entry point
   configuration.rs    # YAML + env var config loading
@@ -23,9 +23,19 @@ src/
 
   pages/
     home.rs           # Dashboard with stats, streak, leaderboard
-    exercises.rs      # Exercise library CRUD with inline edit and video upload
-    wod.rs            # WOD programming with inline edit (coach/admin only)
-    log_workout.rs    # Log workouts with exercise rows
+    exercises/
+      mod.rs          # ExercisesPage, server fns: list/create/update/delete, category constants
+      exercise_card.rs  # Exercise card with inline edit, video embed toggle, delete
+      exercise_form.rs  # Create exercise form (FAB-triggered)
+    wod/
+      mod.rs          # WodPage, server fns: get_week_dates, list_wods_for_date, CRUD actions
+      week_calendar.rs  # Sticky weekly calendar (Sun–Sat), selects date to show WODs
+      wod_card.rs     # Collapsible WOD card with inline coach edit/delete
+      wod_form.rs     # Create WOD form
+      wod_sections_panel.rs  # Lists sections for a WOD; coach add/delete section
+      wod_section_card.rs    # Section card with movements list and "Log Result" button
+      section_movements_panel.rs  # Movements per section; coach add/delete
+    log_workout.rs    # Log workouts per section (WIP — form coming)
     history.rs        # Weekly calendar view of past workouts
     login.rs          # Google sign-in page
     profile.rs        # User profile, stats, sign out
@@ -63,6 +73,53 @@ scripts/
 | Styling | SCSS |
 | PWA | manifest.json + service worker |
 | Build | cargo-leptos |
+
+### Exercise Library
+
+**Categories** (17 total): Conditioning, Gymnastics, Weightlifting, Powerlifting, Cardio, Bodybuilding, Strongman, Plyometrics, Calisthenics, Mobility, Yoga, Meditation, Breathing, Chanting, Sports, Warm Up, Cool Down
+
+Each exercise stores: `name`, `category`, `movement_type` (optional), `description` (optional), `demo_video_url` (optional — YouTube, Vimeo, or direct upload via R2). Video URLs are normalised to embed form (e.g. `youtube.com/watch?v=` → `youtube.com/embed/`).
+
+**Access:**
+- Anyone can browse
+- Any authenticated user can create exercises
+- Any authenticated user can edit/delete exercises
+
+### WOD Data Model
+
+WODs follow a three-level hierarchy:
+
+```
+wod
+ └── wod_sections          (warmup / strength / conditioning / cooldown / optional / personal)
+      └── wod_movements     (exercise + rep_scheme + male/female weights)
+```
+
+Logging mirrors this structure:
+
+```
+workout_logs              (one per athlete per day, linked to a wod)
+ └── section_logs         (one per section: finish time, rounds, rx/scaled)
+      └── workout_exercises (one row per set per movement)
+```
+
+**Workout types** (both WOD and section level): `fortime`, `amrap`, `emom`, `tabata`, `strength`, `custom`
+
+### Database Migrations
+
+| # | Migration | Description |
+|---|-----------|-------------|
+| 0 | `create_exercises_table` | Exercise library |
+| 1 | `create_workout_logs_table` | Top-level workout log |
+| 2 | `create_workout_exercises_table` | Per-exercise log rows |
+| 3 | `create_users_table` | Users with Google OAuth identity |
+| 4 | `add_user_id_to_tables` | Link logs and exercises to users |
+| 5 | `add_rx_column` | Rx/scaled flag on workout log |
+| 6 | `create_wods_table` | WODs + flat movements (initial) |
+| 7 | `add_enums_gender_wod_sections` | `wod_phase`, `section_type`, `gender` enums; `wod_sections` table |
+| 8 | `rework_wod_movements` | Movements linked to sections; male/female weights; rep_scheme text |
+| 9 | `rework_workout_logs` | Link `workout_logs` to WODs; drop legacy name/type/duration columns |
+| 10 | `create_section_logs_rework_workout_exercises` | `section_logs` table; `workout_exercises` becomes per-set linked to section_log |
 
 ### Roles
 
@@ -193,6 +250,8 @@ GitHub Actions (`.github/workflows/`):
 - [x] PWA install banner (Android/desktop native prompt, iOS instructions)
 - [x] Upload validation (auth guard, magic bytes, extension allowlist, 100 MB body limit)
 - [x] Loading indicators on all server actions (spinners + disabled buttons)
+- [x] WOD programming: weekly calendar, sections, movements, coach inline edit/delete
+- [x] Reactive bottom nav active state (client-side navigation aware)
 
 ### Pending
 

@@ -3,7 +3,7 @@
 }
 
 html {
-  overflow-x: clip;
+  overflow: clip;
 }
 
 body {
@@ -21,7 +21,10 @@ body {
 }
 
 main {
-  min-height: 100dvh;
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-top: calc(3rem + env(safe-area-inset-top));
   padding-bottom: calc(5rem + env(safe-area-inset-bottom));
 }

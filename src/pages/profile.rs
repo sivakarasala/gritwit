@@ -79,7 +79,7 @@ pub fn ProfilePage() -> impl IntoView {
                                                 <span class="theme-icon theme-icon--moon"></span>
                                             </button>
                                         </div>
-                                        <a href="/auth/logout" class="profile-logout-btn">"Sign Out"</a>
+                                        <a href="/auth/logout" rel="external" class="profile-logout-btn">"Sign Out"</a>
                                     </div>
                                 }.into_any()
                             }
