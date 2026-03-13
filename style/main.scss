@@ -6,6 +6,8 @@
 
 // Components (co-located with Rust files)
 @use "../src/components/header";
+@use "../src/components/multi_select";
+@use "../src/components/single_select";
 
 // Pages (co-located with Rust files)
 @use "../src/pages/home";

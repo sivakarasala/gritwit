@@ -5,37 +5,6 @@
 }
 
 
-// Filter pills
-.filter-pills {
-  display: flex;
-  gap: 0.4rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
-  -webkit-overflow-scrolling: touch;
-
-  &::-webkit-scrollbar { display: none; }
-}
-
-.filter-pill {
-  padding: 0.35rem 0.75rem;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-
-  &.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-}
-
 // Add form
 .exercise-form {
   background: var(--bg-card);
@@ -61,6 +30,7 @@
     gap: 0.5rem;
 
     select, input { flex: 1; }
+    .single-select { flex: 1.5; min-width: 0; }
   }
 }
 
@@ -316,8 +286,20 @@
 .badge--conditioning { background: rgba(231, 76, 60, 0.15); color: #e74c3c; }
 .badge--gymnastics { background: rgba(155, 89, 182, 0.15); color: #9b59b6; }
 .badge--weightlifting { background: rgba(52, 152, 219, 0.15); color: #3498db; }
+.badge--powerlifting { background: rgba(41, 128, 185, 0.15); color: #2980b9; }
+.badge--cardio { background: rgba(230, 126, 34, 0.15); color: #e67e22; }
+.badge--bodybuilding { background: rgba(192, 57, 43, 0.15); color: #c0392b; }
+.badge--strongman { background: rgba(127, 140, 141, 0.15); color: #7f8c8d; }
+.badge--plyometrics { background: rgba(211, 84, 0, 0.15); color: #d35400; }
+.badge--calisthenics { background: rgba(22, 160, 133, 0.15); color: #16a085; }
+.badge--mobility { background: rgba(26, 188, 156, 0.15); color: #1abc9c; }
+.badge--yoga { background: rgba(142, 68, 173, 0.15); color: #8e44ad; }
 .badge--meditation { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+.badge--breathing { background: rgba(52, 73, 94, 0.15); color: #7fb3d3; }
+.badge--chanting { background: rgba(243, 156, 18, 0.15); color: #f39c12; }
 .badge--sports { background: rgba(241, 196, 15, 0.15); color: #f1c40f; }
+.badge--warmup { background: rgba(255, 165, 0, 0.15); color: #ffa500; }
+.badge--cooldown { background: rgba(100, 149, 237, 0.15); color: #6495ed; }
 
 .exercise-play {
   width: 40px;
@@ -419,7 +401,7 @@
 
   .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1.5fr 1fr;
     gap: 0.5rem;
   }
 }
