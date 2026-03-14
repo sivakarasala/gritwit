@@ -242,6 +242,36 @@ pub async fn delete_wod_section(id: String) -> Result<(), ServerFnError> {
         .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
+// ---- Logged section check ----
+
+/// Returns (section_id, workout_log_id) pairs for sections the current user has already scored.
+#[server]
+pub async fn get_logged_sections(wod_id: String) -> Result<Vec<(String, String)>, ServerFnError> {
+    let user = crate::auth::session::require_auth().await?;
+    let pool = crate::db::db().await?;
+    let wod_uuid: uuid::Uuid = wod_id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    let user_uuid: uuid::Uuid = user
+        .id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        r#"SELECT sl.section_id::text, sl.workout_log_id::text
+           FROM section_logs sl
+           JOIN workout_logs wl ON wl.id = sl.workout_log_id
+           WHERE wl.wod_id = $1 AND wl.user_id = $2"#,
+    )
+    .bind(wod_uuid)
+    .bind(user_uuid)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    Ok(rows)
+}
+
 // ---- Section Movements ----
 
 #[server]

@@ -18,7 +18,11 @@ pub async fn get_current_user() -> Result<Option<AuthUser>, ServerFnError> {
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-    tracing::debug!("session id={:?}, user_id={:?}", session.id(), user_id);
+    tracing::info!(
+        "get_current_user: session id={:?}, user_id={:?}",
+        session.id(),
+        user_id
+    );
 
     let Some(uid) = user_id else {
         return Ok(None);
@@ -29,7 +33,13 @@ pub async fn get_current_user() -> Result<Option<AuthUser>, ServerFnError> {
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
 
-    let user = crate::db::get_user_by_id(&pool, user_uuid).await.ok();
+    let user = match crate::db::get_user_by_id(&pool, user_uuid).await {
+        Ok(u) => Some(u),
+        Err(e) => {
+            tracing::error!("get_user_by_id failed: {:?}", e);
+            None
+        }
+    };
     Ok(user)
 }
 

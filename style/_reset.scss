@@ -33,6 +33,7 @@ main {
   position: fixed;
   inset: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding-top: var(--header-h);
   padding-bottom: var(--nav-h);

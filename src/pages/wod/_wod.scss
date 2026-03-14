@@ -297,12 +297,13 @@
   border: none;
   background: transparent;
   color: var(--text-faint);
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: rgba(255, 68, 68, 0.12);
@@ -372,13 +373,13 @@
 .wod-mov-edit {
   margin-left: auto;
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-placeholder);
-  font-size: 0.85rem;
+  font-size: 1.1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -386,6 +387,7 @@
   transition: all 0.15s;
   line-height: 1;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: rgba(var(--accent-rgb), 0.12);
@@ -395,13 +397,13 @@
 
 .wod-mov-delete {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-placeholder);
-  font-size: 0.95rem;
+  font-size: 1.3rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -409,6 +411,7 @@
   transition: all 0.15s;
   line-height: 1;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: rgba(255, 68, 68, 0.15);
@@ -515,12 +518,13 @@
   border: none;
   background: transparent;
   color: var(--text-faint);
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: rgba(var(--accent-rgb), 0.12);

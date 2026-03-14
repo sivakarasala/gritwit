@@ -44,13 +44,25 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 pub fn App() -> impl IntoView {
     provide_meta_context();
     let user = Resource::new(|| (), |_| get_me());
+    let is_admin = RwSignal::new(false);
+
+    // Sync admin status outside the Suspense render to avoid reactive scope issues
+    Effect::new(move |_| {
+        let admin = user
+            .get()
+            .and_then(|r| r.ok())
+            .flatten()
+            .map(|u| u.role == UserRole::Admin)
+            .unwrap_or(false);
+        is_admin.set(admin);
+    });
 
     view! {
         <Stylesheet id="leptos" href="/pkg/gritwit.css"/>
         <Title text="GrindIt"/>
 
         <Router>
-            <Suspense fallback=|| view! { <div class="login-page"><p>"Loading..."</p></div> }>
+            <Transition fallback=|| view! { <div class="login-page"><p>"Loading..."</p></div> }>
                 {move || {
                     user.get().map(|result| {
                         let auth_user = match result {
@@ -61,10 +73,6 @@ pub fn App() -> impl IntoView {
                             provide_context(u.clone());
                         }
                         let is_authed = auth_user.is_some();
-                        let is_admin = auth_user
-                            .as_ref()
-                            .map(|u| u.role == UserRole::Admin)
-                            .unwrap_or(false);
 
                         view! {
                             <Header user=auth_user/>
@@ -98,13 +106,13 @@ pub fn App() -> impl IntoView {
                                     }/>
                                 </Routes>
                             </main>
-                            <BottomNav is_admin=is_admin/>
                         }
                         .into_any()
                     })
                 }}
-            </Suspense>
+            </Transition>
             <InstallBanner/>
+            <BottomNav is_admin=is_admin/>
         </Router>
     }
 }
@@ -267,7 +275,7 @@ fn InstallBanner() -> impl IntoView {
 }
 
 #[component]
-fn BottomNav(is_admin: bool) -> impl IntoView {
+fn BottomNav(is_admin: RwSignal<bool>) -> impl IntoView {
     let pathname = leptos_router::hooks::use_location().pathname;
 
     view! {
@@ -292,7 +300,7 @@ fn BottomNav(is_admin: bool) -> impl IntoView {
                 <span class="tab-icon tab-icon--history"></span>
                 <span class="tab-label">"History"</span>
             </a>
-            {is_admin.then(|| view! {
+            {move || is_admin.get().then(|| view! {
                 <a href="/admin" class="tab-item" class:active=move || pathname.get().starts_with("/admin")>
                     <span class="tab-icon tab-icon--admin"></span>
                     <span class="tab-label">"Admin"</span>

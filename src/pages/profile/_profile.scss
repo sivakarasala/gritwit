@@ -113,6 +113,54 @@
   color: var(--text-secondary);
 }
 
+// Gender setting
+.profile-gender-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-gender-select {
+  appearance: none;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 2.2rem 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  transition: border-color 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  option {
+    background: var(--bg-card);
+    color: var(--text-secondary);
+  }
+}
+
+.profile-gender-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &.saving {
+    color: var(--text-dim);
+  }
+
+  &.saved {
+    color: var(--accent);
+  }
+}
+
 .profile-logout-btn {
   display: block;
   width: 100%;

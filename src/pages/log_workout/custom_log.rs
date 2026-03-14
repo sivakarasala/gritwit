@@ -119,10 +119,15 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
     let picker_open = RwSignal::new(false);
     let picker_search = RwSignal::new(String::new());
 
+    let navigate = leptos_router::hooks::use_navigate();
+
     let on_submit = move |_| {
         let date = workout_date.get_untracked();
         if date.is_empty() {
-            submit_result.set(Some(Err("Please select a date".to_string())));
+            submit_result.set(None);
+            leptos::task::spawn_local(async move {
+                submit_result.set(Some(Err("Please select a date".to_string())));
+            });
             return;
         }
 
@@ -146,7 +151,10 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
             .collect();
 
         if sets.is_empty() {
-            submit_result.set(Some(Err("Add at least one exercise".to_string())));
+            submit_result.set(None);
+            leptos::task::spawn_local(async move {
+                submit_result.set(Some(Err("Add at least one exercise".to_string())));
+            });
             return;
         }
 
@@ -157,10 +165,11 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
                 .iter()
                 .any(|s| !s.reps.is_empty() || !s.weight_kg.is_empty() || !s.duration.is_empty());
             if !has_data {
-                submit_result.set(Some(Err(format!(
-                    "Fill in at least one set for {}",
-                    entry.exercise_name
-                ))));
+                let msg = format!("Fill in at least one set for {}", entry.exercise_name);
+                submit_result.set(None);
+                leptos::task::spawn_local(async move {
+                    submit_result.set(Some(Err(msg)));
+                });
                 return;
             }
         }
@@ -172,6 +181,7 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
         submitting.set(true);
         submit_result.set(None);
 
+        let nav = navigate.clone();
         leptos::task::spawn_local(async move {
             let nav_date = date.clone();
             let result = if log_id.is_empty() {
@@ -193,11 +203,8 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
                         "Workout logged!"
                     };
                     submit_result.set(Some(Ok(msg.to_string())));
-                    let navigate = leptos_router::hooks::use_navigate();
                     set_timeout(
-                        move || {
-                            navigate(&format!("/history?date={}", nav_date), Default::default())
-                        },
+                        move || nav(&format!("/history?date={}", nav_date), Default::default()),
                         std::time::Duration::from_millis(800),
                     );
                 }
@@ -206,8 +213,12 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
                     let clean = raw
                         .strip_prefix("error running server function: ")
                         .or_else(|| raw.strip_prefix("ServerFnError: "))
-                        .unwrap_or(&raw);
-                    submit_result.set(Some(Err(clean.to_string())));
+                        .unwrap_or(&raw)
+                        .to_string();
+                    submit_result.set(None);
+                    leptos::task::spawn_local(async move {
+                        submit_result.set(Some(Err(clean)));
+                    });
                 }
             }
         });

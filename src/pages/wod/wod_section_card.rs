@@ -11,6 +11,7 @@ pub fn WodSectionCard(
     is_coach: bool,
     delete_action: ServerAction<DeleteWodSection>,
     update_action: ServerAction<UpdateWodSection>,
+    existing_log_id: Option<String>,
 ) -> impl IntoView {
     let editing = RwSignal::new(false);
     let confirm_delete = RwSignal::new(false);
@@ -32,6 +33,7 @@ pub fn WodSectionCard(
     let sec_id_submit = section.id.clone();
     let section_id_for_panel = section.id.clone();
     let sec_id_log = section.id.clone();
+    let navigate = leptos_router::hooks::use_navigate();
 
     let p_label = phase_label(&section.phase);
     let p_class = format!("phase-badge {}", phase_class(&section.phase));
@@ -210,13 +212,17 @@ pub fn WodSectionCard(
                         <button
                             class="section-log-btn"
                             on:click={
-                                let url = format!("/log?section_id={}", sec_id_log);
+                                let url = if let Some(ref log_id) = existing_log_id {
+                                    format!("/log?section_id={}&edit_log={}", sec_id_log, log_id)
+                                } else {
+                                    format!("/log?section_id={}", sec_id_log)
+                                };
+                                let navigate = navigate.clone();
                                 move |_| {
-                                    let navigate = leptos_router::hooks::use_navigate();
                                     navigate(&url, Default::default());
                                 }
                             }
-                        >"Log Result"</button>
+                        >{if existing_log_id.is_some() { "Update Result" } else { "Log Result" }}</button>
                     </div>
                 }.into_any()
             }}

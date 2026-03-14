@@ -1,4 +1,4 @@
-use crate::db::{SectionScoreInput, Wod, WodSection};
+use crate::db::{MovementLogInput, SectionScoreInput, Wod, WodSection};
 use leptos::prelude::*;
 
 use super::section_score_card::{SectionScoreCard, SectionScoreState};
@@ -20,8 +20,18 @@ pub fn WodScoreForm(
     let workout_date = RwSignal::new(wod.programmed_date.clone());
     let overall_notes = RwSignal::new(existing_notes);
 
+    // When a specific section is selected, only show that one
+    let visible_sections: Vec<WodSection> = if !focus_section.is_empty() {
+        sections
+            .into_iter()
+            .filter(|s| s.id == focus_section)
+            .collect()
+    } else {
+        sections
+    };
+
     // Create signals for each section, pre-populated from existing scores if editing
-    let section_states: Vec<SectionScoreState> = sections
+    let section_states: Vec<SectionScoreState> = visible_sections
         .iter()
         .map(|s| {
             let ex = existing_scores.iter().find(|sl| sl.section_id == s.id);
@@ -59,12 +69,14 @@ pub fn WodScoreForm(
                         .unwrap_or_default(),
                 ),
                 notes: RwSignal::new(ex.and_then(|e| e.notes.clone()).unwrap_or_default()),
+                movement_states: RwSignal::new(Vec::new()),
             }
         })
         .collect();
 
     let section_states_submit = section_states.clone();
     let wod_id = wod.id.clone();
+    let navigate = leptos_router::hooks::use_navigate();
 
     let on_submit = move |_| {
         submitting.set(true);
@@ -101,6 +113,32 @@ pub fn WodScoreForm(
                     None
                 };
                 let notes_val = s.notes.get_untracked();
+
+                // Collect movement log inputs
+                let movement_logs: Vec<MovementLogInput> = s
+                    .movement_states
+                    .get_untracked()
+                    .iter()
+                    .filter_map(|m| {
+                        let reps: Option<i32> = m.reps.get_untracked().parse().ok();
+                        let sets: Option<i32> = m.sets.get_untracked().parse().ok();
+                        let w: Option<f32> = m.weight_kg.get_untracked().parse().ok();
+                        let n = m.notes.get_untracked();
+                        // Only include if at least one field is filled
+                        if reps.is_some() || sets.is_some() || w.is_some() || !n.is_empty() {
+                            Some(MovementLogInput {
+                                movement_id: m.movement_id.clone(),
+                                reps,
+                                sets,
+                                weight_kg: w,
+                                notes: if n.is_empty() { None } else { Some(n) },
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
                 (
                     SectionScoreInput {
                         section_id: s.section_id.clone(),
@@ -115,6 +153,7 @@ pub fn WodScoreForm(
                         },
                         is_rx: s.is_rx.get_untracked(),
                         skipped: s.skipped.get_untracked(),
+                        movement_logs,
                     },
                     s.section_type.clone(),
                 )
@@ -127,6 +166,7 @@ pub fn WodScoreForm(
         let notes = overall_notes.get_untracked();
 
         let log_id = edit_log_id.get_untracked();
+        let nav = navigate.clone();
         leptos::task::spawn_local(async move {
             let nav_date = date.clone();
             let result = if log_id.is_empty() {
@@ -145,11 +185,8 @@ pub fn WodScoreForm(
                         "Score logged!"
                     };
                     submit_result.set(Some(Ok(msg.to_string())));
-                    let navigate = leptos_router::hooks::use_navigate();
                     set_timeout(
-                        move || {
-                            navigate(&format!("/history?date={}", nav_date), Default::default())
-                        },
+                        move || nav(&format!("/history?date={}", nav_date), Default::default()),
                         std::time::Duration::from_millis(800),
                     );
                 }
@@ -158,8 +195,13 @@ pub fn WodScoreForm(
                     let clean = raw
                         .strip_prefix("error running server function: ")
                         .or_else(|| raw.strip_prefix("ServerFnError: "))
-                        .unwrap_or(&raw);
-                    submit_result.set(Some(Err(clean.to_string())));
+                        .unwrap_or(&raw)
+                        .to_string();
+                    submit_result.set(None);
+                    let result_signal = submit_result;
+                    leptos::task::spawn_local(async move {
+                        result_signal.set(Some(Err(clean)));
+                    });
                 }
             }
         });

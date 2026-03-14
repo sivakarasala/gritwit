@@ -2,6 +2,7 @@
   max-width: 600px;
   margin: 0 auto;
   padding: 1rem;
+  overflow-x: hidden;
 }
 
 .history-loading-bar {
@@ -37,6 +38,7 @@
   border-radius: 10px;
   padding: 1rem;
   transition: background 0.3s;
+  overflow: hidden;
 }
 
 .result-card-header {
@@ -50,6 +52,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .result-badge {
@@ -73,6 +77,9 @@
   font-weight: 700;
   color: var(--text-primary);
   font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-date {
@@ -104,26 +111,31 @@
 }
 
 .result-icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-faint);
-  font-size: 1.1rem;
+  font-size: 1.35rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
 
-  &--edit:hover {
-    background: rgba(var(--accent-rgb), 0.12);
-    color: var(--accent);
+  &--edit {
+    font-size: 1.3rem;
+
+    &:hover {
+      background: rgba(var(--accent-rgb), 0.12);
+      color: var(--accent);
+    }
   }
 
   &--delete {
-    font-size: 1.4rem;
+    font-size: 1.6rem;
 
     &:hover {
       background: rgba(255, 68, 68, 0.12);
@@ -152,6 +164,67 @@
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--text-primary);
+}
+
+// Section scores for WOD logs
+.result-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.result-section-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.result-section-label {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.result-section-score {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+// Movement details under WOD section rows
+.result-movements {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.25rem 0 0.25rem 0.75rem;
+}
+
+.result-movement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-movement-name {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.result-movement-detail {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 // Exercise details inside a result card
@@ -194,6 +267,8 @@
   font-size: 0.85rem;
   color: var(--text-muted);
   font-style: italic;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .loading {

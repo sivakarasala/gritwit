@@ -114,7 +114,7 @@ fn WodScoreFlow(section_id: String, wod_id: String, edit_log_id: String) -> impl
                     .unwrap_or_default();
                 let focus = focus_section_id.clone();
 
-                if let Some((wod, sections)) = wod_data {
+                if let Some((wod, sections, _movements)) = wod_data {
                     view! {
                         <WodScoreForm
                             wod=wod

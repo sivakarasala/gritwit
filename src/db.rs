@@ -49,8 +49,15 @@ pub async fn get_user_by_id(
     pool: &sqlx::PgPool,
     id: uuid::Uuid,
 ) -> Result<crate::auth::AuthUser, sqlx::Error> {
-    let row: (String, String, String, Option<String>, String) = sqlx::query_as(
-        r#"SELECT id::text, email, display_name, avatar_url, role::text
+    let row: (
+        String,
+        String,
+        String,
+        Option<String>,
+        String,
+        Option<String>,
+    ) = sqlx::query_as(
+        r#"SELECT id::text, email, display_name, avatar_url, role::text, gender::text
            FROM users WHERE id = $1"#,
     )
     .bind(id)
@@ -69,13 +76,22 @@ pub async fn get_user_by_id(
         display_name: row.2,
         avatar_url: row.3,
         role,
+        gender: row.5,
     })
 }
 
 #[cfg(feature = "ssr")]
 pub async fn list_users_db(pool: &sqlx::PgPool) -> Result<Vec<crate::auth::AuthUser>, sqlx::Error> {
-    let rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
-        r#"SELECT id::text, email, display_name, avatar_url, role::text
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(
+        String,
+        String,
+        String,
+        Option<String>,
+        String,
+        Option<String>,
+    )> = sqlx::query_as(
+        r#"SELECT id::text, email, display_name, avatar_url, role::text, gender::text
            FROM users ORDER BY created_at"#,
     )
     .fetch_all(pool)
@@ -95,6 +111,7 @@ pub async fn list_users_db(pool: &sqlx::PgPool) -> Result<Vec<crate::auth::AuthU
                 display_name: row.2,
                 avatar_url: row.3,
                 role,
+                gender: row.5,
             }
         })
         .collect())
@@ -108,6 +125,25 @@ pub async fn update_user_role_db(
 ) -> Result<(), sqlx::Error> {
     sqlx::query("UPDATE users SET role = $1::user_role, updated_at = now() WHERE id = $2")
         .bind(new_role)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+pub async fn update_user_gender_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+    gender: &str,
+) -> Result<(), sqlx::Error> {
+    let gender_val: Option<&str> = if gender.is_empty() {
+        None
+    } else {
+        Some(gender)
+    };
+    sqlx::query("UPDATE users SET gender = $1::gender, updated_at = now() WHERE id = $2")
+        .bind(gender_val)
         .bind(user_id)
         .execute(pool)
         .await?;
@@ -329,6 +365,33 @@ pub struct SectionLog {
     pub score_value: Option<i32>,
 }
 
+/// Section score enriched with section metadata, for history display.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct SectionScoreWithMeta {
+    pub section_log_id: String,
+    pub section_type: String,
+    pub section_title: Option<String>,
+    pub finish_time_seconds: Option<i32>,
+    pub rounds_completed: Option<i32>,
+    pub extra_reps: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub is_rx: bool,
+    pub skipped: bool,
+}
+
+/// A movement log enriched with the exercise name.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct MovementLogWithName {
+    pub section_log_id: String,
+    pub exercise_name: String,
+    pub reps: Option<i32>,
+    pub sets: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub notes: Option<String>,
+}
+
 /// Input for submitting a single section score.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SectionScoreInput {
@@ -340,6 +403,31 @@ pub struct SectionScoreInput {
     pub notes: Option<String>,
     pub is_rx: bool,
     pub skipped: bool,
+    #[serde(default)]
+    pub movement_logs: Vec<MovementLogInput>,
+}
+
+/// Input for logging results per movement within a section.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MovementLogInput {
+    pub movement_id: String,
+    pub reps: Option<i32>,
+    pub sets: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub notes: Option<String>,
+}
+
+/// A saved per-movement result (read from DB).
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MovementLog {
+    pub id: String,
+    pub section_log_id: String,
+    pub movement_id: String,
+    pub reps: Option<i32>,
+    pub sets: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub notes: Option<String>,
 }
 
 /// Leaderboard entry for a specific section.
@@ -558,6 +646,26 @@ pub async fn get_wod_movements_db(
            ORDER BY wm.sort_order, wm.created_at"#,
     )
     .bind(section_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Load all movements for all sections of a WOD in one query.
+#[cfg(feature = "ssr")]
+pub async fn get_all_wod_movements_db(
+    pool: &sqlx::PgPool,
+    wod_id: uuid::Uuid,
+) -> Result<Vec<WodMovement>, sqlx::Error> {
+    sqlx::query_as::<_, WodMovement>(
+        r#"SELECT wm.id::text, wm.section_id::text, wm.exercise_id::text, e.name as exercise_name,
+                  wm.rep_scheme, wm.weight_kg_male, wm.weight_kg_female, wm.notes, wm.sort_order
+           FROM wod_movements wm
+           JOIN exercises e ON e.id = wm.exercise_id
+           JOIN wod_sections ws ON ws.id = wm.section_id
+           WHERE ws.wod_id = $1
+           ORDER BY ws.sort_order, wm.sort_order, wm.created_at"#,
+    )
+    .bind(wod_id)
     .fetch_all(pool)
     .await
 }
@@ -816,11 +924,12 @@ pub async fn submit_wod_score_db(
             )
         };
 
-        sqlx::query(
+        let (section_log_id,): (uuid::Uuid,) = sqlx::query_as(
             r#"INSERT INTO section_logs
                (workout_log_id, section_id, finish_time_seconds, rounds_completed,
                 extra_reps, weight_kg, notes, is_rx, skipped, score_value)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               RETURNING id"#,
         )
         .bind(log_id)
         .bind(section_id)
@@ -832,8 +941,28 @@ pub async fn submit_wod_score_db(
         .bind(input.is_rx)
         .bind(input.skipped)
         .bind(score_value)
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await?;
+
+        // Insert per-movement logs
+        for ml in &input.movement_logs {
+            let mov_id: uuid::Uuid = ml
+                .movement_id
+                .parse()
+                .map_err(|e| sqlx::Error::Protocol(format!("Invalid movement_id: {}", e)))?;
+            sqlx::query(
+                r#"INSERT INTO movement_logs (section_log_id, movement_id, reps, sets, weight_kg, notes)
+                   VALUES ($1, $2, $3, $4, $5, $6)"#,
+            )
+            .bind(section_log_id)
+            .bind(mov_id)
+            .bind(ml.reps)
+            .bind(ml.sets)
+            .bind(ml.weight_kg)
+            .bind(&ml.notes)
+            .execute(&mut *tx)
+            .await?;
+        }
     }
 
     tx.commit().await?;
@@ -853,6 +982,85 @@ pub async fn get_section_logs_db(
            FROM section_logs
            WHERE workout_log_id = $1
            ORDER BY created_at"#,
+    )
+    .bind(workout_log_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Get movement logs for a section log.
+#[cfg(feature = "ssr")]
+pub async fn get_movement_logs_db(
+    pool: &sqlx::PgPool,
+    section_log_id: uuid::Uuid,
+) -> Result<Vec<MovementLog>, sqlx::Error> {
+    sqlx::query_as::<_, MovementLog>(
+        r#"SELECT id::text, section_log_id::text, movement_id::text,
+                  reps, sets, weight_kg, notes
+           FROM movement_logs
+           WHERE section_log_id = $1
+           ORDER BY created_at"#,
+    )
+    .bind(section_log_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Get all movement logs for a workout log (across all sections).
+#[cfg(feature = "ssr")]
+pub async fn get_movement_logs_for_workout_db(
+    pool: &sqlx::PgPool,
+    workout_log_id: uuid::Uuid,
+) -> Result<Vec<MovementLog>, sqlx::Error> {
+    sqlx::query_as::<_, MovementLog>(
+        r#"SELECT ml.id::text, ml.section_log_id::text, ml.movement_id::text,
+                  ml.reps, ml.sets, ml.weight_kg, ml.notes
+           FROM movement_logs ml
+           JOIN section_logs sl ON sl.id = ml.section_log_id
+           WHERE sl.workout_log_id = $1
+           ORDER BY ml.created_at"#,
+    )
+    .bind(workout_log_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Load section scores with section metadata for history display.
+#[cfg(feature = "ssr")]
+pub async fn get_section_scores_with_meta_db(
+    pool: &sqlx::PgPool,
+    workout_log_id: uuid::Uuid,
+) -> Result<Vec<SectionScoreWithMeta>, sqlx::Error> {
+    sqlx::query_as::<_, SectionScoreWithMeta>(
+        r#"SELECT sl.id::text as section_log_id,
+                  ws.section_type::text, ws.title as section_title,
+                  sl.finish_time_seconds, sl.rounds_completed, sl.extra_reps,
+                  sl.weight_kg, sl.is_rx, sl.skipped
+           FROM section_logs sl
+           JOIN wod_sections ws ON ws.id = sl.section_id
+           WHERE sl.workout_log_id = $1
+           ORDER BY ws.sort_order"#,
+    )
+    .bind(workout_log_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Get movement logs with exercise names for a workout.
+#[cfg(feature = "ssr")]
+pub async fn get_movement_logs_with_names_db(
+    pool: &sqlx::PgPool,
+    workout_log_id: uuid::Uuid,
+) -> Result<Vec<MovementLogWithName>, sqlx::Error> {
+    sqlx::query_as::<_, MovementLogWithName>(
+        r#"SELECT ml.section_log_id::text, e.name as exercise_name,
+                  ml.reps, ml.sets, ml.weight_kg, ml.notes
+           FROM movement_logs ml
+           JOIN wod_movements wm ON wm.id = ml.movement_id
+           JOIN exercises e ON e.id = wm.exercise_id
+           JOIN section_logs sl ON sl.id = ml.section_log_id
+           WHERE sl.workout_log_id = $1
+           ORDER BY sl.id, ml.created_at"#,
     )
     .bind(workout_log_id)
     .fetch_all(pool)

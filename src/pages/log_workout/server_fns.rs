@@ -1,6 +1,6 @@
 #[cfg(feature = "ssr")]
 use crate::db::SectionScoreInput;
-use crate::db::{Wod, WodSection};
+use crate::db::{Wod, WodMovement, WodSection};
 use leptos::prelude::*;
 
 #[cfg(feature = "ssr")]
@@ -13,25 +13,30 @@ fn validate_date(date: &str) -> Result<(), ServerFnError> {
     Ok(())
 }
 
-/// Load a WOD with its sections for scoring.
+/// Load a WOD with its sections and movements for scoring.
 #[server]
-pub async fn get_wod_for_scoring(wod_id: String) -> Result<(Wod, Vec<WodSection>), ServerFnError> {
+pub async fn get_wod_for_scoring(
+    wod_id: String,
+) -> Result<(Wod, Vec<WodSection>, Vec<WodMovement>), ServerFnError> {
     let _user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
     let uuid: uuid::Uuid = wod_id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    let result = crate::db::get_wod_with_sections_db(&pool, uuid)
+    let (wod, sections) = crate::db::get_wod_with_sections_db(&pool, uuid)
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
-    Ok(result)
+    let movements = crate::db::get_all_wod_movements_db(&pool, uuid)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    Ok((wod, sections, movements))
 }
 
 /// Look up which WOD a section belongs to.
 #[server]
 pub async fn get_wod_by_section(
     section_id: String,
-) -> Result<(Wod, Vec<WodSection>), ServerFnError> {
+) -> Result<(Wod, Vec<WodSection>, Vec<WodMovement>), ServerFnError> {
     let _user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
     let sec_uuid: uuid::Uuid = section_id
@@ -44,10 +49,13 @@ pub async fn get_wod_by_section(
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-    let result = crate::db::get_wod_with_sections_db(&pool, wod_id)
+    let (wod, sections) = crate::db::get_wod_with_sections_db(&pool, wod_id)
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
-    Ok(result)
+    let movements = crate::db::get_all_wod_movements_db(&pool, wod_id)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    Ok((wod, sections, movements))
 }
 
 /// Get today's WODs for the WOD picker.
@@ -328,11 +336,12 @@ pub async fn update_wod_scores(
             .section_id
             .parse()
             .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-        sqlx::query(
+        let (section_log_id,): (uuid::Uuid,) = sqlx::query_as(
             r#"INSERT INTO section_logs
                (workout_log_id, section_id, finish_time_seconds, rounds_completed,
                 extra_reps, weight_kg, notes, is_rx, skipped)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               RETURNING id"#,
         )
         .bind(log_uuid)
         .bind(sec_uuid)
@@ -343,12 +352,63 @@ pub async fn update_wod_scores(
         .bind(score.notes.as_deref())
         .bind(score.is_rx)
         .bind(score.skipped)
-        .execute(&pool)
+        .fetch_one(&pool)
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+        // Insert per-movement logs
+        for ml in &score.movement_logs {
+            let mov_uuid: uuid::Uuid = ml
+                .movement_id
+                .parse()
+                .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+            sqlx::query(
+                r#"INSERT INTO movement_logs (section_log_id, movement_id, reps, sets, weight_kg, notes)
+                   VALUES ($1, $2, $3, $4, $5, $6)"#,
+            )
+            .bind(section_log_id)
+            .bind(mov_uuid)
+            .bind(ml.reps)
+            .bind(ml.sets)
+            .bind(ml.weight_kg)
+            .bind(&ml.notes)
+            .execute(&pool)
+            .await
+            .map_err(|e| ServerFnError::new(e.to_string()))?;
+        }
     }
 
     Ok(())
+}
+
+/// Load existing movement logs for editing a workout.
+#[server]
+pub async fn get_movement_logs_for_edit(
+    log_id: String,
+) -> Result<Vec<crate::db::MovementLog>, ServerFnError> {
+    let _user = crate::auth::session::require_auth().await?;
+    let pool = crate::db::db().await?;
+    let log_uuid: uuid::Uuid = log_id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    crate::db::get_movement_logs_for_workout_db(&pool, log_uuid)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+}
+
+/// Load movements for a specific section.
+#[server]
+pub async fn get_section_movements_for_log(
+    section_id: String,
+) -> Result<Vec<WodMovement>, ServerFnError> {
+    let _user = crate::auth::session::require_auth().await?;
+    let pool = crate::db::db().await?;
+    let uuid: uuid::Uuid = section_id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    crate::db::get_wod_movements_db(&pool, uuid)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
 /// Get exercises for the picker.

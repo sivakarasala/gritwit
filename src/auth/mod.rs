@@ -41,6 +41,7 @@ pub struct AuthUser {
     pub display_name: String,
     pub avatar_url: Option<String>,
     pub role: UserRole,
+    pub gender: Option<String>,
 }
 
 impl AuthUser {

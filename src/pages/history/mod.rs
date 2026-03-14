@@ -1,7 +1,7 @@
 mod history_card;
 
 use crate::components::DeleteModal;
-use crate::db::{WorkoutExercise, WorkoutLog};
+use crate::db::{MovementLogWithName, SectionScoreWithMeta, WorkoutExercise, WorkoutLog};
 use crate::pages::wod::week_calendar::WeeklyCalendar;
 use history_card::HistoryCard;
 use leptos::prelude::*;
@@ -13,6 +13,8 @@ pub(crate) struct HistoryEntry {
     pub log: WorkoutLog,
     pub wod_title: Option<String>,
     pub exercises: Vec<WorkoutExercise>,
+    pub section_scores: Vec<SectionScoreWithMeta>,
+    pub movement_logs: Vec<MovementLogWithName>,
 }
 
 #[server]
@@ -68,19 +70,35 @@ async fn get_history_for_date(date: String) -> Result<Vec<HistoryEntry>, ServerF
             None
         };
 
-        // Get exercises for custom workouts
         let log_uuid: uuid::Uuid = log
             .id
             .parse()
             .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+
+        // Get exercises for custom workouts
         let exercises = crate::db::list_workout_exercises_db(&pool, log_uuid)
             .await
             .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+        // Get section scores and movement logs for WOD workouts
+        let (section_scores, movement_logs) = if log.wod_id.is_some() {
+            let scores = crate::db::get_section_scores_with_meta_db(&pool, log_uuid)
+                .await
+                .map_err(|e| ServerFnError::new(e.to_string()))?;
+            let movements = crate::db::get_movement_logs_with_names_db(&pool, log_uuid)
+                .await
+                .map_err(|e| ServerFnError::new(e.to_string()))?;
+            (scores, movements)
+        } else {
+            (vec![], vec![])
+        };
 
         entries.push(HistoryEntry {
             log,
             wod_title,
             exercises,
+            section_scores,
+            movement_logs,
         });
     }
 

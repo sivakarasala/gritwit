@@ -1,4 +1,4 @@
-use crate::db::WorkoutExercise;
+use crate::db::{MovementLogWithName, SectionScoreWithMeta, WorkoutExercise};
 use leptos::prelude::*;
 
 use super::HistoryEntry;
@@ -36,8 +36,10 @@ pub fn HistoryCard(
 
     // Group exercises by name for display
     let exercise_groups = group_exercises(&entry.exercises);
+    let movement_logs = entry.movement_logs.clone();
 
     let log_id_delete = log_id.clone();
+    let navigate = leptos_router::hooks::use_navigate();
 
     view! {
         <div class="result-card">
@@ -52,8 +54,8 @@ pub fn HistoryCard(
                         title="Edit"
                         on:click={
                             let url = edit_url.clone();
+                            let navigate = navigate.clone();
                             move |_| {
-                                let navigate = leptos_router::hooks::use_navigate();
                                 navigate(&url, Default::default());
                             }
                         }
@@ -69,7 +71,57 @@ pub fn HistoryCard(
                 </div>
             </div>
 
-            // Exercise details
+            // Section scores for WOD logs
+            {if !entry.section_scores.is_empty() {
+                let ml = movement_logs.clone();
+                Some(view! {
+                    <div class="result-sections">
+                        {entry.section_scores.into_iter().map(|s| {
+                            let label = s.section_title.clone()
+                                .unwrap_or_else(|| format_section_type(&s.section_type));
+                            let score = format_section_score(&s);
+                            let rx_class = if s.is_rx { "result-rx" } else { "result-rx result-rx--scaled" };
+                            let rx_label = if s.is_rx { "Rx" } else { "Scaled" };
+                            let section_movements: Vec<_> = ml.iter()
+                                .filter(|m| m.section_log_id == s.section_log_id)
+                                .cloned()
+                                .collect();
+                            view! {
+                                <div class="result-section-row">
+                                    <span class="result-section-label">{label}</span>
+                                    {(!s.skipped).then(|| view! {
+                                        <span class={rx_class}>{rx_label}</span>
+                                    })}
+                                    <span class="result-section-score">
+                                        {if s.skipped { "Skipped".to_string() } else { score }}
+                                    </span>
+                                </div>
+                                {if !section_movements.is_empty() {
+                                    Some(view! {
+                                        <div class="result-movements">
+                                            {section_movements.into_iter().map(|m| {
+                                                let detail = format_movement(&m);
+                                                view! {
+                                                    <div class="result-movement-row">
+                                                        <span class="result-movement-name">{m.exercise_name}</span>
+                                                        <span class="result-movement-detail">{detail}</span>
+                                                    </div>
+                                                }
+                                            }).collect_view()}
+                                        </div>
+                                    })
+                                } else {
+                                    None
+                                }}
+                            }
+                        }).collect_view()}
+                    </div>
+                })
+            } else {
+                None
+            }}
+
+            // Exercise details for custom workouts
             {if !exercise_groups.is_empty() {
                 Some(view! {
                     <div class="result-exercises">
@@ -145,5 +197,66 @@ fn format_set(set: &WorkoutExercise) -> String {
         format!("Set {}", set.set_number)
     } else {
         parts.join(" × ")
+    }
+}
+
+fn format_movement(m: &MovementLogWithName) -> String {
+    let mut parts = Vec::new();
+    if let Some(sets) = m.sets {
+        if sets > 1 {
+            parts.push(format!("{}×", sets));
+        }
+    }
+    if let Some(reps) = m.reps {
+        parts.push(format!("{} reps", reps));
+    }
+    if let Some(w) = m.weight_kg {
+        parts.push(format!("{}kg", w));
+    }
+    if parts.is_empty() {
+        "—".to_string()
+    } else {
+        parts.join(" ")
+    }
+}
+
+fn format_section_type(t: &str) -> String {
+    match t {
+        "fortime" => "For Time".to_string(),
+        "amrap" => "AMRAP".to_string(),
+        "emom" => "EMOM".to_string(),
+        "strength" => "Strength".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn format_section_score(s: &SectionScoreWithMeta) -> String {
+    match s.section_type.as_str() {
+        "fortime" => {
+            if let Some(t) = s.finish_time_seconds {
+                let mins = t / 60;
+                let secs = t % 60;
+                format!("{}:{:02}", mins, secs)
+            } else {
+                "—".to_string()
+            }
+        }
+        "amrap" | "emom" => {
+            let rounds = s.rounds_completed.unwrap_or(0);
+            let reps = s.extra_reps.unwrap_or(0);
+            if reps > 0 {
+                format!("{} rounds + {} reps", rounds, reps)
+            } else {
+                format!("{} rounds", rounds)
+            }
+        }
+        "strength" => {
+            if let Some(w) = s.weight_kg {
+                format!("{}kg", w)
+            } else {
+                "—".to_string()
+            }
+        }
+        _ => "—".to_string(),
     }
 }

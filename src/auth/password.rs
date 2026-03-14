@@ -33,7 +33,6 @@ pub async fn login_with_password(email: String, password: String) -> Result<(), 
     let session = super::session::get_session().await?;
     super::session::set_user_id(&session, &row.id.to_string()).await?;
 
-    leptos_axum::redirect("/");
     Ok(())
 }
 
@@ -106,6 +105,5 @@ pub async fn register_with_password(
     let session = super::session::get_session().await?;
     super::session::set_user_id(&session, &user_id.0.to_string()).await?;
 
-    leptos_axum::redirect("/");
     Ok(())
 }

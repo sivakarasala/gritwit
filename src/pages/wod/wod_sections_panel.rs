@@ -2,7 +2,9 @@ use crate::components::{SelectOption, SingleSelect};
 use leptos::prelude::*;
 
 use super::wod_section_card::WodSectionCard;
-use super::{list_wod_sections, CreateWodSection, DeleteWodSection, UpdateWodSection};
+use super::{
+    get_logged_sections, list_wod_sections, CreateWodSection, DeleteWodSection, UpdateWodSection,
+};
 
 fn phase_options() -> Vec<SelectOption> {
     vec![
@@ -65,6 +67,7 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
     let update_section_action = ServerAction::<UpdateWodSection>::new();
 
     let wid = wod_id.clone();
+    let wid_logged = wod_id.clone();
     let sections = Resource::new(
         move || {
             (
@@ -76,6 +79,8 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
         },
         |(id, _, _, _)| list_wod_sections(id),
     );
+
+    let logged_sections = Resource::new(move || wid_logged.clone(), get_logged_sections);
 
     let show_add_section = RwSignal::new(false);
     let phase_input = RwSignal::new("conditioning".to_string());
@@ -97,20 +102,30 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
                     Ok(secs) if secs.is_empty() => view! {
                         <p class="wod-sections-empty">"No sections yet"</p>
                     }.into_any(),
-                    Ok(secs) => view! {
-                        <div class="wod-section-list">
-                            {secs.into_iter().map(|sec| {
-                                view! {
-                                    <WodSectionCard
-                                        section=sec
-                                        is_coach=is_coach
-                                        delete_action=delete_section_action
-                                        update_action=update_section_action
-                                    />
-                                }
-                            }).collect_view()}
-                        </div>
-                    }.into_any(),
+                    Ok(secs) => {
+                        let logged = logged_sections
+                            .get()
+                            .and_then(|r| r.ok())
+                            .unwrap_or_default();
+                        view! {
+                            <div class="wod-section-list">
+                                {secs.into_iter().map(|sec| {
+                                    let log_id = logged.iter()
+                                        .find(|(sid, _)| *sid == sec.id)
+                                        .map(|(_, lid)| lid.clone());
+                                    view! {
+                                        <WodSectionCard
+                                            section=sec
+                                            is_coach=is_coach
+                                            delete_action=delete_section_action
+                                            update_action=update_section_action
+                                            existing_log_id=log_id
+                                        />
+                                    }
+                                }).collect_view()}
+                            </div>
+                        }.into_any()
+                    },
                 })}
             </Suspense>
 

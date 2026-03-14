@@ -338,13 +338,14 @@
   border: none;
   background: transparent;
   color: var(--text-faint);
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   transition: all 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: rgba(255, 68, 68, 0.12);
@@ -360,12 +361,13 @@
   border: none;
   background: transparent;
   color: var(--text-faint);
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: rgba(var(--accent-rgb), 0.12);
