@@ -14,7 +14,7 @@ pub fn ExerciseCard(
     update_action: ServerAction<UpdateExercise>,
     pending_delete_id: RwSignal<String>,
     show_delete: RwSignal<bool>,
-    is_authed: bool,
+    is_coach: bool,
 ) -> impl IntoView {
     let id = exercise.id.clone();
     let cat = exercise.category.clone();
@@ -220,7 +220,7 @@ pub fn ExerciseCard(
                                         </button>
                                     }
                                 })}
-                                {is_authed.then(|| {
+                                {is_coach.then(|| {
                                     let iname = iname.clone();
                                     let icat = icat.clone();
                                     let imt = imt.clone();

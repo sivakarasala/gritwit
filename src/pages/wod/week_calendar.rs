@@ -19,7 +19,7 @@ const MONTH_NAMES: [&str; 12] = [
 
 /// Get today's date as YYYY-MM-DD string.
 /// On the client (WASM) uses js_sys::Date; on the server uses chrono.
-pub(super) fn today_iso() -> String {
+pub(crate) fn today_iso() -> String {
     #[cfg(feature = "hydrate")]
     {
         let d = js_sys::Date::new_0();
@@ -30,9 +30,13 @@ pub(super) fn today_iso() -> String {
             d.get_date()
         )
     }
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(feature = "ssr")]
     {
         chrono::Local::now().date_naive().to_string()
+    }
+    #[cfg(not(any(feature = "hydrate", feature = "ssr")))]
+    {
+        String::from("1970-01-01") // placeholder for cargo check without features
     }
 }
 

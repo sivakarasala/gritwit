@@ -1,5 +1,7 @@
 mod exercise_card;
 mod exercise_form;
+pub(crate) mod helpers;
+mod server_fns;
 
 use crate::components::{DeleteModal, MultiSelect, SelectOption};
 use crate::db::Exercise;
@@ -7,194 +9,15 @@ use exercise_card::ExerciseCard;
 use exercise_form::ExerciseForm;
 use leptos::prelude::*;
 
-#[server]
-async fn list_exercises() -> Result<Vec<Exercise>, ServerFnError> {
-    let pool = crate::db::db().await?;
-    crate::db::list_exercises_db(&pool)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
-}
-
-#[server]
-async fn create_exercise(
-    name: String,
-    category: String,
-    movement_type: String,
-    description: String,
-    demo_video_url: String,
-) -> Result<(), ServerFnError> {
-    let user = crate::auth::session::require_auth().await?;
-    let pool = crate::db::db().await?;
-    let user_uuid: uuid::Uuid = user
-        .id
-        .parse()
-        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    let mt = if movement_type.is_empty() {
-        None
-    } else {
-        Some(movement_type.as_str())
-    };
-    let desc = if description.is_empty() {
-        None
-    } else {
-        Some(description.as_str())
-    };
-    let video = if demo_video_url.is_empty() {
-        None
-    } else {
-        Some(demo_video_url.as_str())
-    };
-    crate::db::create_exercise_db(
-        &pool,
-        &name,
-        &category,
-        mt,
-        &[],
-        desc,
-        video,
-        Some(user_uuid),
-    )
-    .await
-    .map_err(|e| ServerFnError::new(e.to_string()))
-}
-
-#[server]
-async fn update_exercise(
-    id: String,
-    name: String,
-    category: String,
-    movement_type: String,
-    description: String,
-    demo_video_url: String,
-) -> Result<(), ServerFnError> {
-    let _user = crate::auth::session::require_auth().await?;
-    let pool = crate::db::db().await?;
-    let uuid: uuid::Uuid = id
-        .parse()
-        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    let mt = if movement_type.is_empty() {
-        None
-    } else {
-        Some(movement_type.as_str())
-    };
-    let desc = if description.is_empty() {
-        None
-    } else {
-        Some(description.as_str())
-    };
-    let video = if demo_video_url.is_empty() {
-        None
-    } else {
-        Some(demo_video_url.as_str())
-    };
-    crate::db::update_exercise_db(&pool, uuid, &name, &category, mt, desc, video)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
-}
-
-#[server]
-async fn delete_exercise(id: String) -> Result<(), ServerFnError> {
-    let _user = crate::auth::session::require_auth().await?;
-    let pool = crate::db::db().await?;
-    let uuid: uuid::Uuid = id
-        .parse()
-        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    crate::db::delete_exercise_db(&pool, uuid)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
-}
-
-/// Convert a YouTube or Vimeo URL to its embed URL. Returns None for local/other URLs.
-pub(crate) fn to_embed_url(url: &str) -> Option<String> {
-    if url.contains("youtube.com/watch") {
-        if let Some(pos) = url.find("v=") {
-            let id = &url[pos + 2..];
-            let id = id.split('&').next().unwrap_or(id);
-            return Some(format!(
-                "https://www.youtube.com/embed/{}?playsinline=1&enablejsapi=1",
-                id
-            ));
-        }
-    }
-    if url.contains("youtu.be/") {
-        if let Some(pos) = url.find("youtu.be/") {
-            let id = &url[pos + 9..];
-            let id = id.split('?').next().unwrap_or(id);
-            return Some(format!(
-                "https://www.youtube.com/embed/{}?playsinline=1&enablejsapi=1",
-                id
-            ));
-        }
-    }
-    if url.contains("vimeo.com/") {
-        if let Some(pos) = url.rfind('/') {
-            let id = &url[pos + 1..];
-            let id = id.split('?').next().unwrap_or(id);
-            if id.chars().all(|c| c.is_ascii_digit()) {
-                return Some(format!("https://player.vimeo.com/video/{}", id));
-            }
-        }
-    }
-    None
-}
-
-/// Single source of truth for exercise categories.
-/// Each entry: (value, label, badge, css_class)
-pub(crate) const CATEGORIES: &[(&str, &str, &str, &str)] = &[
-    ("conditioning", "Conditioning", "CON", "badge--conditioning"),
-    ("gymnastics", "Gymnastics", "GYM", "badge--gymnastics"),
-    (
-        "weightlifting",
-        "Weightlifting",
-        "WL",
-        "badge--weightlifting",
-    ),
-    ("powerlifting", "Powerlifting", "PWR", "badge--powerlifting"),
-    ("cardio", "Cardio", "CRD", "badge--cardio"),
-    ("bodybuilding", "Bodybuilding", "BB", "badge--bodybuilding"),
-    ("strongman", "Strongman", "STR", "badge--strongman"),
-    ("plyometrics", "Plyometrics", "PLY", "badge--plyometrics"),
-    ("calisthenics", "Calisthenics", "CAL", "badge--calisthenics"),
-    ("mobility", "Mobility", "MOB", "badge--mobility"),
-    ("yoga", "Yoga", "YGA", "badge--yoga"),
-    ("meditation", "Meditation", "MED", "badge--meditation"),
-    ("breathing", "Breathing", "BRE", "badge--breathing"),
-    ("chanting", "Chanting", "CHN", "badge--chanting"),
-    ("sports", "Sports", "SPT", "badge--sports"),
-    ("warmup", "Warm Up", "WRM", "badge--warmup"),
-    ("cooldown", "Cool Down", "CLD", "badge--cooldown"),
-];
-
-pub(crate) fn category_badge(cat: &str) -> &'static str {
-    CATEGORIES
-        .iter()
-        .find(|(v, _, _, _)| *v == cat)
-        .map(|(_, _, b, _)| *b)
-        .unwrap_or("GEN")
-}
-
-pub(crate) fn category_class(cat: &str) -> &'static str {
-    CATEGORIES
-        .iter()
-        .find(|(v, _, _, _)| *v == cat)
-        .map(|(_, _, _, c)| *c)
-        .unwrap_or("")
-}
-
-pub(crate) fn category_select_options() -> Vec<SelectOption> {
-    CATEGORIES
-        .iter()
-        .map(|(val, label, _, _)| SelectOption {
-            value: val.to_string(),
-            label: label.to_string(),
-        })
-        .collect()
-}
+pub(crate) use helpers::*;
+pub(super) use server_fns::*;
 
 #[component]
 pub fn ExercisesPage() -> impl IntoView {
-    use crate::auth::AuthUser;
-    let is_authed = use_context::<AuthUser>().is_some();
+    use crate::auth::{AuthUser, UserRole};
+    let is_coach = use_context::<AuthUser>()
+        .map(|u| matches!(u.role, UserRole::Coach | UserRole::Admin))
+        .unwrap_or(false);
 
     let create_action = ServerAction::<CreateExercise>::new();
     let delete_action = ServerAction::<DeleteExercise>::new();
@@ -218,7 +41,7 @@ pub fn ExercisesPage() -> impl IntoView {
     let show_delete = RwSignal::new(false);
     let pending_delete_id = RwSignal::new(String::new());
 
-    let fab_view = if is_authed {
+    let fab_view = if is_coach {
         view! {
             <button
                 class={move || if show_form.get() { "fab fab--active" } else { "fab" }}
@@ -282,7 +105,7 @@ pub fn ExercisesPage() -> impl IntoView {
                                                         update_action=update_action
                                                         pending_delete_id=pending_delete_id
                                                         show_delete=show_delete
-                                                        is_authed=is_authed
+                                                        is_coach=is_coach
                                                     />
                                                 }
                                             }).collect_view()}

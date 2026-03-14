@@ -1,6 +1,6 @@
 # GrindIt
 
-A workout tracking app inspired by SugarWOD, built with Rust. Features WOD programming, workout logging, exercise library, leaderboards, and role-based access for coaches and athletes.
+A workout tracking app inspired by SugarWOD, built with Rust. Features WOD programming, workout logging, exercise library, history with edit/delete, and role-based access for coaches and athletes.
 
 ## Architecture
 
@@ -19,34 +19,65 @@ src/
   auth/
     mod.rs            # AuthUser, UserRole, get_me() server function
     oauth.rs          # Google OAuth handlers (login, callback, logout)
+    password.rs       # Email/password login and registration server functions
     session.rs        # Session helpers (get_current_user, require_auth, require_role)
 
   pages/
-    home.rs           # Dashboard with stats, streak, leaderboard
+    home/
+      mod.rs          # Dashboard with stats, streak, leaderboard
+      leaderboard.rs  # Leaderboard component
     exercises/
-      mod.rs          # ExercisesPage, server fns: list/create/update/delete, category constants
+      mod.rs          # ExercisesPage, server fns: list/create/update/delete
       exercise_card.rs  # Exercise card with inline edit, video embed toggle, delete
       exercise_form.rs  # Create exercise form (FAB-triggered)
+      server_fns.rs   # Server functions for exercise CRUD
+      helpers.rs      # Category/type helpers
     wod/
-      mod.rs          # WodPage, server fns: get_week_dates, list_wods_for_date, CRUD actions
-      week_calendar.rs  # Sticky weekly calendar (Sun–Sat), selects date to show WODs
+      mod.rs          # WodPage, server fns: list_wods_for_date, CRUD actions
+      week_calendar.rs  # Sticky weekly calendar (Sun–Sat), computes dates client-side
       wod_card.rs     # Collapsible WOD card with inline coach edit/delete
       wod_form.rs     # Create WOD form
       wod_sections_panel.rs  # Lists sections for a WOD; coach add/delete section
       wod_section_card.rs    # Section card with movements list and "Log Result" button
       section_movements_panel.rs  # Movements per section; coach add/delete
-    log_workout.rs    # Log workouts per section (WIP — form coming)
-    history.rs        # Weekly calendar view of past workouts
-    login.rs          # Google sign-in page
-    profile.rs        # User profile, stats, sign out
-    admin.rs          # User management (admin only)
+      server_fns.rs   # Server functions for WOD CRUD
+      helpers.rs      # WOD type/phase helpers
+    log_workout/
+      mod.rs          # LogWorkoutPage, tab switcher (WOD / Custom), query param routing
+      wod_score_form.rs     # Per-section score entry form; edit mode via ?edit_log= param
+      section_score_card.rs # Individual section score card (Rx/skip toggles, time/rounds/weight)
+      custom_log.rs   # Custom (non-WOD) workout logger
+      exercise_entry_card.rs  # Exercise card for custom log
+      set_row.rs      # Set input row (reps, weight, duration, notes)
+      server_fns.rs   # Server functions: save/update WOD scores and custom logs
+    history/
+      mod.rs          # HistoryPage, server fns: fetch/delete entries, reactive feed
+      history_card.rs # Result card with edit (→ /log?edit) and delete (modal confirm) buttons
+    login/
+      mod.rs          # Email/password sign-in + register forms, Google OAuth button, toast errors
+    profile/
+      mod.rs          # User profile, stats, sign out
+    admin/
+      mod.rs          # User management (admin only)
+      user_row.rs     # User row with role selector
 
   routes/
     health_check.rs   # GET /api/v1/health_check
     upload.rs         # POST /api/v1/upload/video
 
   components/
-    _header.scss      # Top bar + bottom nav styles
+    mod.rs            # Component re-exports
+    delete_modal.rs   # Reusable delete confirmation modal
+    header.rs         # Top app bar + bottom nav
+    multi_select.rs   # Multi-select dropdown
+    single_select.rs  # Single-select dropdown
+    video_upload.rs   # Video file upload with progress
+
+style/
+  main.scss           # Entry point — imports all modules
+  _themes.scss        # CSS custom properties: dark (Ember) and light (Himalayan Snow)
+  _reset.scss         # Base reset and global defaults
+  _toast.scss         # Global toast notification: slide-in from right, auto-dismiss (4.75s)
 
 configuration/
   base.yaml           # Shared defaults
@@ -68,7 +99,7 @@ scripts/
 | Frontend | Leptos 0.8 (SSR + WASM hydration) |
 | Server | Axum 0.8 |
 | Database | PostgreSQL via SQLx |
-| Auth | Google OAuth 2.0 + server-side sessions (tower-sessions) |
+| Auth | Google OAuth 2.0 + Email/Password + server-side sessions (tower-sessions) |
 | Storage | Local filesystem (dev) / Cloudflare R2 (prod) |
 | Styling | SCSS |
 | PWA | manifest.json + service worker |
@@ -99,16 +130,19 @@ Logging mirrors this structure:
 
 ```
 workout_logs              (one per athlete per day, linked to a wod)
- └── section_logs         (one per section: finish time, rounds, rx/scaled)
-      └── workout_exercises (one row per set per movement)
+ └── section_logs         (one per section: finish time, rounds, rx/scaled, score_value, weight_kg)
+      └── workout_exercises (one row per set per movement — for WOD sections)
+
+workout_logs              (custom / non-WOD)
+ └── workout_exercises     (linked directly via workout_log_id)
 ```
 
 **Workout types** (both WOD and section level): `fortime`, `amrap`, `emom`, `tabata`, `strength`, `custom`
 
 ### Database Migrations
 
-| # | Migration | Description |
-|---|-----------|-------------|
+| # | File | Description |
+|---|------|-------------|
 | 0 | `create_exercises_table` | Exercise library |
 | 1 | `create_workout_logs_table` | Top-level workout log |
 | 2 | `create_workout_exercises_table` | Per-exercise log rows |
@@ -119,7 +153,11 @@ workout_logs              (one per athlete per day, linked to a wod)
 | 7 | `add_enums_gender_wod_sections` | `wod_phase`, `section_type`, `gender` enums; `wod_sections` table |
 | 8 | `rework_wod_movements` | Movements linked to sections; male/female weights; rep_scheme text |
 | 9 | `rework_workout_logs` | Link `workout_logs` to WODs; drop legacy name/type/duration columns |
-| 10 | `create_section_logs_rework_workout_exercises` | `section_logs` table; `workout_exercises` becomes per-set linked to section_log |
+| 10 | `create_section_logs_rework_workout_exercises` | `section_logs` table; `workout_exercises` per-set linked to section_log |
+| 11 | `add_score_columns` | `weight_kg`, `score_value` on `section_logs`; unique constraint + leaderboard index |
+| 12 | `add_workout_log_id_back_to_exercises` | `workout_log_id` on `workout_exercises` for custom (non-WOD) logs; parent check constraint |
+| 13 | `add_password_auth` | `google_id` made nullable; `password_hash` column added (email/password auth) |
+| 14 | `add_updated_at_to_workout_logs` | `updated_at TIMESTAMPTZ` on `workout_logs` (required for update queries) |
 
 ### Roles
 
@@ -176,6 +214,62 @@ cargo leptos watch
 ```
 
 App runs at `http://localhost:3000`. The first user to sign in gets the Admin role.
+
+### Testing on iPhone with ngrok
+
+ngrok tunnels your local server to a public HTTPS URL, which is required for:
+- Google OAuth (callback URL must be HTTPS)
+- PWA install prompts (service workers require HTTPS)
+- iOS Safari testing with safe-area insets
+
+**Step 1 — Install ngrok**
+
+```bash
+brew install ngrok
+```
+
+Or download from [ngrok.com](https://ngrok.com/download) and authenticate:
+
+```bash
+ngrok config add-authtoken <your-token>
+```
+
+**Step 2 — Start the app**
+
+```bash
+cargo leptos watch
+```
+
+**Step 3 — Start ngrok in a separate terminal**
+
+```bash
+ngrok http 3000
+```
+
+ngrok will print a URL like `https://abc123.ngrok-free.app`. Use this as your base URL on the phone.
+
+**Step 4 — Add the ngrok URL to Google OAuth**
+
+In [Google Cloud Console](https://console.cloud.google.com/) > APIs & Services > Credentials > your OAuth client:
+
+- Add `https://abc123.ngrok-free.app/auth/google/callback` to **Authorized redirect URIs**
+
+Also set in `.env` (so the server sends the right callback URL):
+
+```env
+APP_OAUTH__REDIRECT_URL=https://abc123.ngrok-free.app/auth/google/callback
+```
+
+Restart `cargo leptos watch` after changing `.env`.
+
+**Step 5 — Open on iPhone**
+
+Navigate to `https://abc123.ngrok-free.app` in Safari on your iPhone. To test as a PWA:
+
+1. Tap the Share button → **Add to Home Screen**
+2. Launch from the home screen icon — it runs in standalone mode (no browser chrome)
+
+> **Note:** ngrok free tier URLs change on every restart. Update the OAuth redirect URI whenever you get a new URL. Consider [ngrok static domains](https://ngrok.com/docs/network-edge/domains/) (free tier gives one) to keep a stable URL.
 
 ## Production Deployment
 
@@ -237,6 +331,7 @@ GitHub Actions (`.github/workflows/`):
 ### Done
 
 - [x] Google OAuth with role-based access (Athlete/Coach/Admin)
+- [x] Email/password authentication (register + login)
 - [x] Server-side sessions in PostgreSQL
 - [x] Environment-aware session cookies (Secure flag in production)
 - [x] Cloudflare R2 storage backend for video uploads
@@ -252,6 +347,9 @@ GitHub Actions (`.github/workflows/`):
 - [x] Loading indicators on all server actions (spinners + disabled buttons)
 - [x] WOD programming: weekly calendar, sections, movements, coach inline edit/delete
 - [x] Reactive bottom nav active state (client-side navigation aware)
+- [x] Workout history: per-entry edit (re-opens log form) and delete (modal confirm)
+- [x] Global toast notifications: top-right, slide-in animation, auto-dismiss (4.75s)
+- [x] Weekly calendar computes dates client-side (no server round-trip on date change)
 
 ### Pending
 

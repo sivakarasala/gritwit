@@ -311,23 +311,83 @@ pub struct LeaderboardEntry {
     pub workout_count: i64,
 }
 
+// ---- Section Log Models ----
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct SectionLog {
+    pub id: String,
+    pub workout_log_id: String,
+    pub section_id: String,
+    pub finish_time_seconds: Option<i32>,
+    pub rounds_completed: Option<i32>,
+    pub extra_reps: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub notes: Option<String>,
+    pub is_rx: bool,
+    pub skipped: bool,
+    pub score_value: Option<i32>,
+}
+
+/// Input for submitting a single section score.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SectionScoreInput {
+    pub section_id: String,
+    pub finish_time_seconds: Option<i32>,
+    pub rounds_completed: Option<i32>,
+    pub extra_reps: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub notes: Option<String>,
+    pub is_rx: bool,
+    pub skipped: bool,
+}
+
+/// Leaderboard entry for a specific section.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SectionLeaderboardEntry {
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+    pub score_value: i32,
+    pub is_rx: bool,
+    pub finish_time_seconds: Option<i32>,
+    pub rounds_completed: Option<i32>,
+    pub extra_reps: Option<i32>,
+    pub weight_kg: Option<f32>,
+}
+
+/// Personal best for a section.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PersonalBest {
+    pub score_value: i32,
+    pub is_rx: bool,
+    pub logged_at: String,
+}
+
 #[cfg(feature = "ssr")]
 pub async fn leaderboard_db(
     pool: &sqlx::PgPool,
     limit: i64,
+    viewer_email: &str,
+    is_viewer_admin: bool,
 ) -> Result<Vec<LeaderboardEntry>, sqlx::Error> {
-    // Simple leaderboard: users ranked by total workouts logged this week
+    // Test accounts are hidden from the leaderboard unless the viewer is
+    // an admin or is the test user themselves.
+    let test_emails: &[&str] = &["test@coach.com", "test@athlete.com"];
     let rows: Vec<(String, Option<String>, i64)> = sqlx::query_as(
         r#"SELECT u.display_name, u.avatar_url, COUNT(wl.id) as workout_count
            FROM users u
            LEFT JOIN workout_logs wl ON wl.user_id = u.id
                AND wl.workout_date >= date_trunc('week', CURRENT_DATE)::date
+           WHERE ($2 OR u.email = $3 OR u.email != ALL($4))
            GROUP BY u.id, u.display_name, u.avatar_url
            HAVING COUNT(wl.id) > 0
            ORDER BY workout_count DESC
            LIMIT $1"#,
     )
     .bind(limit)
+    .bind(is_viewer_admin)
+    .bind(viewer_email)
+    .bind(test_emails)
     .fetch_all(pool)
     .await?;
 
@@ -364,7 +424,7 @@ pub async fn list_workouts_by_date_db(
 
 // ---- WOD Models ----
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 pub struct Wod {
     pub id: String,
@@ -375,7 +435,7 @@ pub struct Wod {
     pub programmed_date: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 pub struct WodSection {
     pub id: String,
@@ -674,5 +734,463 @@ pub async fn delete_wod_section_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Resul
         .bind(id)
         .execute(pool)
         .await?;
+    Ok(())
+}
+
+// ---- Section Log / Scoring Queries ----
+
+/// Compute the score_value from section score inputs and section type.
+/// - fortime: finish_time_seconds (lower = better)
+/// - amrap/emom: rounds * 1000 + extra_reps (higher = better)
+/// - strength: (weight_kg * 100) as i32 (higher = better)
+/// - static/other: None
+pub fn compute_score_value(
+    section_type: &str,
+    finish_time_seconds: Option<i32>,
+    rounds_completed: Option<i32>,
+    extra_reps: Option<i32>,
+    weight_kg: Option<f32>,
+) -> Option<i32> {
+    match section_type {
+        "fortime" => finish_time_seconds,
+        "amrap" | "emom" => {
+            let r = rounds_completed.unwrap_or(0);
+            let e = extra_reps.unwrap_or(0);
+            Some(r * 1000 + e)
+        }
+        "strength" => weight_kg.map(|w| (w * 100.0) as i32),
+        _ => None,
+    }
+}
+
+/// Submit scores for a WOD: creates a workout_log + section_logs in one transaction.
+#[cfg(feature = "ssr")]
+pub async fn submit_wod_score_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+    wod_id: uuid::Uuid,
+    workout_date: &str,
+    notes: Option<&str>,
+    sections: &[(SectionScoreInput, String)], // (input, section_type)
+) -> Result<uuid::Uuid, sqlx::Error> {
+    let date: chrono::NaiveDate = workout_date
+        .parse()
+        .map_err(|e| sqlx::Error::Protocol(format!("Invalid date: {}", e)))?;
+
+    // Determine overall is_rx: true only if ALL non-skipped sections are RX
+    let overall_rx = sections
+        .iter()
+        .filter(|(s, _)| !s.skipped)
+        .all(|(s, _)| s.is_rx);
+
+    let mut tx = pool.begin().await?;
+
+    let (log_id,): (uuid::Uuid,) = sqlx::query_as(
+        r#"INSERT INTO workout_logs (user_id, wod_id, workout_date, notes, is_rx)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id"#,
+    )
+    .bind(user_id)
+    .bind(wod_id)
+    .bind(date)
+    .bind(notes)
+    .bind(overall_rx)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    for (input, section_type) in sections {
+        let section_id: uuid::Uuid = input
+            .section_id
+            .parse()
+            .map_err(|e| sqlx::Error::Protocol(format!("Invalid section_id: {}", e)))?;
+
+        let score_value = if input.skipped {
+            None
+        } else {
+            compute_score_value(
+                section_type,
+                input.finish_time_seconds,
+                input.rounds_completed,
+                input.extra_reps,
+                input.weight_kg,
+            )
+        };
+
+        sqlx::query(
+            r#"INSERT INTO section_logs
+               (workout_log_id, section_id, finish_time_seconds, rounds_completed,
+                extra_reps, weight_kg, notes, is_rx, skipped, score_value)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
+        )
+        .bind(log_id)
+        .bind(section_id)
+        .bind(input.finish_time_seconds)
+        .bind(input.rounds_completed)
+        .bind(input.extra_reps)
+        .bind(input.weight_kg)
+        .bind(&input.notes)
+        .bind(input.is_rx)
+        .bind(input.skipped)
+        .bind(score_value)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(log_id)
+}
+
+/// Get section logs for a workout log.
+#[cfg(feature = "ssr")]
+pub async fn get_section_logs_db(
+    pool: &sqlx::PgPool,
+    workout_log_id: uuid::Uuid,
+) -> Result<Vec<SectionLog>, sqlx::Error> {
+    sqlx::query_as::<_, SectionLog>(
+        r#"SELECT id::text, workout_log_id::text, section_id::text,
+                  finish_time_seconds, rounds_completed, extra_reps,
+                  weight_kg, notes, is_rx, skipped, score_value
+           FROM section_logs
+           WHERE workout_log_id = $1
+           ORDER BY created_at"#,
+    )
+    .bind(workout_log_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Section leaderboard: top scores for a given section.
+#[cfg(feature = "ssr")]
+pub async fn section_leaderboard_db(
+    pool: &sqlx::PgPool,
+    section_id: uuid::Uuid,
+    section_type: &str,
+    limit: i64,
+) -> Result<Vec<SectionLeaderboardEntry>, sqlx::Error> {
+    // fortime: lower is better (ASC); amrap/emom/strength: higher is better (DESC)
+    let order = if section_type == "fortime" {
+        "ASC"
+    } else {
+        "DESC"
+    };
+
+    let query = format!(
+        r#"SELECT u.display_name, u.avatar_url, sl.score_value,
+                  sl.is_rx, sl.finish_time_seconds, sl.rounds_completed,
+                  sl.extra_reps, sl.weight_kg
+           FROM section_logs sl
+           JOIN workout_logs wl ON wl.id = sl.workout_log_id
+           JOIN users u ON u.id = wl.user_id
+           WHERE sl.section_id = $1 AND sl.score_value IS NOT NULL
+           ORDER BY sl.is_rx DESC, sl.score_value {}
+           LIMIT $2"#,
+        order
+    );
+
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(
+        String,
+        Option<String>,
+        i32,
+        bool,
+        Option<i32>,
+        Option<i32>,
+        Option<i32>,
+        Option<f32>,
+    )> = sqlx::query_as(&query)
+        .bind(section_id)
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(
+            |(
+                display_name,
+                avatar_url,
+                score_value,
+                is_rx,
+                finish_time_seconds,
+                rounds_completed,
+                extra_reps,
+                weight_kg,
+            )| {
+                SectionLeaderboardEntry {
+                    display_name,
+                    avatar_url,
+                    score_value,
+                    is_rx,
+                    finish_time_seconds,
+                    rounds_completed,
+                    extra_reps,
+                    weight_kg,
+                }
+            },
+        )
+        .collect())
+}
+
+/// Personal best for a section (best score_value for the user).
+#[cfg(feature = "ssr")]
+pub async fn personal_best_for_section_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+    section_id: uuid::Uuid,
+    section_type: &str,
+) -> Result<Option<PersonalBest>, sqlx::Error> {
+    let order = if section_type == "fortime" {
+        "ASC"
+    } else {
+        "DESC"
+    };
+
+    let query = format!(
+        r#"SELECT sl.score_value, sl.is_rx, sl.created_at::text
+           FROM section_logs sl
+           JOIN workout_logs wl ON wl.id = sl.workout_log_id
+           WHERE sl.section_id = $1 AND wl.user_id = $2 AND sl.score_value IS NOT NULL
+           ORDER BY sl.is_rx DESC, sl.score_value {}
+           LIMIT 1"#,
+        order
+    );
+
+    let row: Option<(i32, bool, String)> = sqlx::query_as(&query)
+        .bind(section_id)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(row.map(|(score_value, is_rx, logged_at)| PersonalBest {
+        score_value,
+        is_rx,
+        logged_at,
+    }))
+}
+
+/// Check if a user has already logged a score for a WOD on a given date.
+#[cfg(feature = "ssr")]
+pub async fn has_wod_score_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+    wod_id: uuid::Uuid,
+    workout_date: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    let date: chrono::NaiveDate = workout_date
+        .parse()
+        .map_err(|e| sqlx::Error::Protocol(format!("Invalid date: {}", e)))?;
+
+    let row: Option<(String,)> = sqlx::query_as(
+        r#"SELECT id::text FROM workout_logs
+           WHERE user_id = $1 AND wod_id = $2 AND workout_date = $3"#,
+    )
+    .bind(user_id)
+    .bind(wod_id)
+    .bind(date)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|(id,)| id))
+}
+
+/// Get a WOD with its sections (for the log page).
+#[cfg(feature = "ssr")]
+pub async fn get_wod_with_sections_db(
+    pool: &sqlx::PgPool,
+    wod_id: uuid::Uuid,
+) -> Result<(Wod, Vec<WodSection>), sqlx::Error> {
+    let wod = sqlx::query_as::<_, Wod>(
+        r#"SELECT id::text, title, description, workout_type,
+                  time_cap_minutes, programmed_date::text
+           FROM wods WHERE id = $1"#,
+    )
+    .bind(wod_id)
+    .fetch_one(pool)
+    .await?;
+
+    let sections = list_wod_sections_db(pool, wod_id).await?;
+    Ok((wod, sections))
+}
+
+// ---- Workout Exercise Models & Queries (Custom Logging) ----
+
+/// A single set of an exercise in a custom workout log.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct WorkoutExercise {
+    pub id: String,
+    pub exercise_id: String,
+    pub exercise_name: String,
+    pub set_number: i32,
+    pub reps: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub duration_seconds: Option<i32>,
+    pub notes: Option<String>,
+}
+
+/// Input for a single exercise set in a custom workout.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExerciseSetInput {
+    pub exercise_id: String,
+    pub set_number: i32,
+    pub reps: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub duration_seconds: Option<i32>,
+    pub notes: Option<String>,
+}
+
+/// Submit a custom workout with exercises in one transaction.
+#[cfg(feature = "ssr")]
+pub async fn submit_custom_workout_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+    workout_date: &str,
+    notes: Option<&str>,
+    exercises: &[ExerciseSetInput],
+) -> Result<uuid::Uuid, sqlx::Error> {
+    let date: chrono::NaiveDate = workout_date
+        .parse()
+        .map_err(|e| sqlx::Error::Protocol(format!("Invalid date: {}", e)))?;
+
+    let mut tx = pool.begin().await?;
+
+    let (log_id,): (uuid::Uuid,) = sqlx::query_as(
+        r#"INSERT INTO workout_logs (user_id, workout_date, notes, is_rx)
+           VALUES ($1, $2, $3, true)
+           RETURNING id"#,
+    )
+    .bind(user_id)
+    .bind(date)
+    .bind(notes)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    for input in exercises {
+        let exercise_id: uuid::Uuid = input
+            .exercise_id
+            .parse()
+            .map_err(|e| sqlx::Error::Protocol(format!("Invalid exercise_id: {}", e)))?;
+
+        sqlx::query(
+            r#"INSERT INTO workout_exercises
+               (workout_log_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        )
+        .bind(log_id)
+        .bind(exercise_id)
+        .bind(input.set_number)
+        .bind(input.reps)
+        .bind(input.weight_kg)
+        .bind(input.duration_seconds)
+        .bind(&input.notes)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(log_id)
+}
+
+/// Get exercises for a workout log (custom logging).
+#[cfg(feature = "ssr")]
+pub async fn list_workout_exercises_db(
+    pool: &sqlx::PgPool,
+    workout_log_id: uuid::Uuid,
+) -> Result<Vec<WorkoutExercise>, sqlx::Error> {
+    sqlx::query_as::<_, WorkoutExercise>(
+        r#"SELECT we.id::text, we.exercise_id::text, e.name as exercise_name,
+                  we.set_number, we.reps, we.weight_kg, we.duration_seconds, we.notes
+           FROM workout_exercises we
+           JOIN exercises e ON e.id = we.exercise_id
+           WHERE we.workout_log_id = $1
+           ORDER BY we.sort_order, we.set_number"#,
+    )
+    .bind(workout_log_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Update an existing custom workout: replace notes and exercises.
+#[cfg(feature = "ssr")]
+pub async fn update_custom_workout_db(
+    pool: &sqlx::PgPool,
+    log_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+    workout_date: &str,
+    notes: Option<&str>,
+    exercises: &[ExerciseSetInput],
+) -> Result<(), sqlx::Error> {
+    let date: chrono::NaiveDate = workout_date
+        .parse()
+        .map_err(|e| sqlx::Error::Protocol(format!("Invalid date: {}", e)))?;
+
+    let mut tx = pool.begin().await?;
+
+    // Verify ownership
+    let count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM workout_logs WHERE id = $1 AND user_id = $2")
+            .bind(log_id)
+            .bind(user_id)
+            .fetch_one(&mut *tx)
+            .await?;
+    if count.0 == 0 {
+        return Err(sqlx::Error::RowNotFound);
+    }
+
+    // Update log
+    sqlx::query("UPDATE workout_logs SET workout_date = $1, notes = $2 WHERE id = $3")
+        .bind(date)
+        .bind(notes)
+        .bind(log_id)
+        .execute(&mut *tx)
+        .await?;
+
+    // Delete old exercises and re-insert
+    sqlx::query("DELETE FROM workout_exercises WHERE workout_log_id = $1")
+        .bind(log_id)
+        .execute(&mut *tx)
+        .await?;
+
+    for input in exercises {
+        let exercise_id: uuid::Uuid = input
+            .exercise_id
+            .parse()
+            .map_err(|e| sqlx::Error::Protocol(format!("Invalid exercise_id: {}", e)))?;
+
+        sqlx::query(
+            r#"INSERT INTO workout_exercises
+               (workout_log_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        )
+        .bind(log_id)
+        .bind(exercise_id)
+        .bind(input.set_number)
+        .bind(input.reps)
+        .bind(input.weight_kg)
+        .bind(input.duration_seconds)
+        .bind(&input.notes)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Delete a workout log and its exercises.
+#[cfg(feature = "ssr")]
+pub async fn delete_workout_log_db(
+    pool: &sqlx::PgPool,
+    log_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+) -> Result<(), sqlx::Error> {
+    let result = sqlx::query("DELETE FROM workout_logs WHERE id = $1 AND user_id = $2")
+        .bind(log_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(sqlx::Error::RowNotFound);
+    }
     Ok(())
 }

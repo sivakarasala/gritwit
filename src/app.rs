@@ -45,14 +45,6 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
     let user = Resource::new(|| (), |_| get_me());
 
-    let is_admin = Memo::new(move |_| {
-        user.get()
-            .and_then(|r| r.ok())
-            .flatten()
-            .map(|u| u.role == UserRole::Admin)
-            .unwrap_or(false)
-    });
-
     view! {
         <Stylesheet id="leptos" href="/pkg/gritwit.css"/>
         <Title text="GrindIt"/>
@@ -69,6 +61,10 @@ pub fn App() -> impl IntoView {
                             provide_context(u.clone());
                         }
                         let is_authed = auth_user.is_some();
+                        let is_admin = auth_user
+                            .as_ref()
+                            .map(|u| u.role == UserRole::Admin)
+                            .unwrap_or(false);
 
                         view! {
                             <Header user=auth_user/>
@@ -102,13 +98,13 @@ pub fn App() -> impl IntoView {
                                     }/>
                                 </Routes>
                             </main>
+                            <BottomNav is_admin=is_admin/>
                         }
                         .into_any()
                     })
                 }}
             </Suspense>
             <InstallBanner/>
-            <BottomNav is_admin=is_admin/>
         </Router>
     }
 }
@@ -271,7 +267,7 @@ fn InstallBanner() -> impl IntoView {
 }
 
 #[component]
-fn BottomNav(is_admin: Memo<bool>) -> impl IntoView {
+fn BottomNav(is_admin: bool) -> impl IntoView {
     let pathname = leptos_router::hooks::use_location().pathname;
 
     view! {
@@ -296,7 +292,7 @@ fn BottomNav(is_admin: Memo<bool>) -> impl IntoView {
                 <span class="tab-icon tab-icon--history"></span>
                 <span class="tab-label">"History"</span>
             </a>
-            {move || is_admin.get().then(|| view! {
+            {is_admin.then(|| view! {
                 <a href="/admin" class="tab-item" class:active=move || pathname.get().starts_with("/admin")>
                     <span class="tab-icon tab-icon--admin"></span>
                     <span class="tab-label">"Admin"</span>

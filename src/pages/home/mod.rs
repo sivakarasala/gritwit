@@ -1,6 +1,8 @@
+mod leaderboard;
+
 use crate::db::LeaderboardEntry;
+use leaderboard::LeaderboardPreview;
 use leptos::prelude::*;
-use leptos_router::components::A;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DashboardData {
@@ -28,7 +30,8 @@ async fn get_dashboard() -> Result<DashboardData, ServerFnError> {
     let streak = crate::db::streak_days_db(&pool, user_uuid)
         .await
         .unwrap_or(0);
-    let leaderboard = crate::db::leaderboard_db(&pool, 5)
+    let is_admin = matches!(user.role, crate::auth::UserRole::Admin);
+    let leaderboard = crate::db::leaderboard_db(&pool, 5, &user.email, is_admin)
         .await
         .unwrap_or_default();
 
@@ -44,14 +47,6 @@ async fn get_dashboard() -> Result<DashboardData, ServerFnError> {
         streak,
         leaderboard,
     })
-}
-
-fn initials(name: &str) -> String {
-    name.split_whitespace()
-        .filter_map(|w| w.chars().next())
-        .take(2)
-        .collect::<String>()
-        .to_uppercase()
 }
 
 #[component]
@@ -75,18 +70,18 @@ pub fn HomePage() -> impl IntoView {
 
                                     // Quick actions
                                     <div class="quick-actions">
-                                        <A href="/log" attr:class="quick-action-card">
+                                        <a href="/log" class="quick-action-card">
                                             <span class="quick-action-icon">"+"</span>
                                             <span class="quick-action-label">"Log Workout"</span>
-                                        </A>
-                                        <A href="/exercises" attr:class="quick-action-card">
+                                        </a>
+                                        <a href="/exercises" class="quick-action-card">
                                             <span class="quick-action-icon">"☰"</span>
                                             <span class="quick-action-label">"Exercises"</span>
-                                        </A>
-                                        <A href="/history" attr:class="quick-action-card">
+                                        </a>
+                                        <a href="/history" class="quick-action-card">
                                             <span class="quick-action-icon">"↩"</span>
                                             <span class="quick-action-label">"History"</span>
-                                        </A>
+                                        </a>
                                     </div>
 
                                     // Stats bar
@@ -108,41 +103,7 @@ pub fn HomePage() -> impl IntoView {
                                     </div>
 
                                     // Leaderboard
-                                    <div class="leaderboard-preview">
-                                        <div class="leaderboard-header">
-                                            <h3>"This Week"</h3>
-                                            <span class="leaderboard-wod">"Leaderboard"</span>
-                                        </div>
-                                        {if lb.is_empty() {
-                                            view! {
-                                                <div class="leaderboard-empty">
-                                                    <p>"No workouts logged this week yet."</p>
-                                                </div>
-                                            }.into_any()
-                                        } else {
-                                            view! {
-                                                <div class="leaderboard-list">
-                                                    {lb.into_iter().enumerate().map(|(i, entry)| {
-                                                        let ini = initials(&entry.display_name);
-                                                        let rank = i + 1;
-                                                        let count_label = if entry.workout_count == 1 {
-                                                            "workout".to_string()
-                                                        } else {
-                                                            "workouts".to_string()
-                                                        };
-                                                        view! {
-                                                            <div class="leaderboard-entry">
-                                                                <span class="lb-rank">{rank}</span>
-                                                                <span class="lb-avatar">{ini}</span>
-                                                                <span class="lb-name">{entry.display_name}</span>
-                                                                <span class="lb-score">{format!("{} {}", entry.workout_count, count_label)}</span>
-                                                            </div>
-                                                        }
-                                                    }).collect_view()}
-                                                </div>
-                                            }.into_any()
-                                        }}
-                                    </div>
+                                    <LeaderboardPreview entries=lb/>
                                 }.into_any()
                             }
                             Err(e) => view! { <p class="error">{format!("Error: {}", e)}</p> }.into_any(),

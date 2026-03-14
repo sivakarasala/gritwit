@@ -4,17 +4,20 @@
 // Base
 @use "reset";
 
+// Global UI primitives
+@use "toast";
+
 // Components (co-located with Rust files)
 @use "../src/components/header";
 @use "../src/components/multi_select";
 @use "../src/components/single_select";
 
 // Pages (co-located with Rust files)
-@use "../src/pages/home";
-@use "../src/pages/exercises";
-@use "../src/pages/log_workout";
-@use "../src/pages/history";
-@use "../src/pages/login";
-@use "../src/pages/admin";
-@use "../src/pages/profile";
-@use "../src/pages/wod";
+@use "../src/pages/home/home";
+@use "../src/pages/exercises/exercises";
+@use "../src/pages/log_workout/log_workout";
+@use "../src/pages/history/history";
+@use "../src/pages/login/login";
+@use "../src/pages/admin/admin";
+@use "../src/pages/profile/profile";
+@use "../src/pages/wod/wod";

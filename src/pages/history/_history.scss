@@ -4,6 +4,27 @@
   padding: 1rem;
 }
 
+.history-loading-bar {
+  height: 2px;
+  background: transparent;
+  border-radius: 1px;
+  overflow: hidden;
+  transition: opacity 0.2s;
+  opacity: 0;
+
+  &.active {
+    opacity: 1;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 // Results feed
 .results-feed {
   display: flex;
@@ -75,6 +96,42 @@
   }
 }
 
+.result-card-actions {
+  display: flex;
+  gap: 0.1rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.result-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+
+  &--edit:hover {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+  }
+
+  &--delete {
+    font-size: 1.4rem;
+
+    &:hover {
+      background: rgba(255, 68, 68, 0.12);
+      color: #ff6b6b;
+    }
+  }
+}
+
 .result-pr {
   font-size: 0.7rem;
   font-weight: 700;
@@ -83,6 +140,51 @@
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   white-space: nowrap;
+}
+
+.result-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+// Exercise details inside a result card
+.result-exercises {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.result-exercise-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.result-exercise-name {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.result-sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.result-set {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  background: var(--bg-base);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
 }
 
 .result-notes {

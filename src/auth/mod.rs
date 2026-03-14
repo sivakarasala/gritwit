@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
 pub mod oauth;
+pub mod password;
 #[cfg(feature = "ssr")]
 pub mod session;
 

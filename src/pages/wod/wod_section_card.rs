@@ -207,10 +207,16 @@ pub fn WodSectionCard(
                         is_coach=is_coach
                     />
                     <div class="section-log-footer">
-                        <a
+                        <button
                             class="section-log-btn"
-                            href={format!("/log?section_id={}", sec_id_log)}
-                        >"Log Result"</a>
+                            on:click={
+                                let url = format!("/log?section_id={}", sec_id_log);
+                                move |_| {
+                                    let navigate = leptos_router::hooks::use_navigate();
+                                    navigate(&url, Default::default());
+                                }
+                            }
+                        >"Log Result"</button>
                     </div>
                 }.into_any()
             }}
