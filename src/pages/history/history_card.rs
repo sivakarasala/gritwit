@@ -56,6 +56,13 @@ pub fn HistoryCard(
                             let url = edit_url.clone();
                             let navigate = navigate.clone();
                             move |_| {
+                                // Scroll main to top instantly before navigating to avoid visible scroll
+                                #[cfg(feature = "hydrate")]
+                                {
+                                    let _ = js_sys::eval(
+                                        "var m=document.querySelector('main');if(m){m.scrollTo({top:0,behavior:'instant'})}",
+                                    );
+                                }
                                 navigate(&url, Default::default());
                             }
                         }

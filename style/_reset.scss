@@ -2,6 +2,13 @@
   box-sizing: border-box;
 }
 
+// Prevent iOS Safari auto-zoom on input focus (triggers at font-size < 16px)
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
 :root {
   --header-h: calc(2.5rem + env(safe-area-inset-top, 0px));
   --nav-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));

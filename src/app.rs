@@ -283,10 +283,10 @@ fn ScrollReset() -> impl IntoView {
         let _ = pathname.get();
         #[cfg(feature = "hydrate")]
         {
-            // Blur active element + scroll main to top via JS
+            // Blur active element + scroll main to top instantly via JS
             let _ = js_sys::eval(
                 "if(document.activeElement)document.activeElement.blur();\
-                 var m=document.querySelector('main');if(m){m.scrollTop=0}",
+                 var m=document.querySelector('main');if(m){m.scrollTo({top:0,behavior:'instant'})}",
             );
         }
     });
