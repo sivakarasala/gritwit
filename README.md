@@ -17,10 +17,12 @@ src/
   voice.rs            # Client-side JS interop (file upload, theme toggle)
 
   auth/
-    mod.rs            # AuthUser, UserRole, get_me() server function
+    mod.rs            # AuthUser, UserRole, OtpResult, clean_error(), get_me()
     oauth.rs          # Google OAuth handlers (login, callback, logout)
+    otp.rs            # SMS OTP send/verify via 2Factor.in (cryptographic OTP, atomic verify)
     password.rs       # Email/password login and registration server functions
-    session.rs        # Session helpers (get_current_user, require_auth, require_role)
+    session.rs        # Session helpers (get_current_user, require_auth, require_role, auth_context)
+    validation.rs     # Shared validators: validate_name, validate_email, validate_password, hash_password, default_role_for_new_user
 
   pages/
     home/
@@ -54,9 +56,9 @@ src/
       mod.rs          # HistoryPage, server fns: fetch/delete entries, reactive feed
       history_card.rs # Result card with edit (→ /log?edit) and delete (modal confirm) buttons
     login/
-      mod.rs          # Email/password sign-in + register forms, Google OAuth button, toast errors
+      mod.rs          # Phone OTP + Email/Password tabs, Google OAuth button, toast errors
     profile/
-      mod.rs          # User profile, stats, sign out
+      mod.rs          # User profile (name, email, phone, gender), set/update password, stats, sign out
     admin/
       mod.rs          # User management (admin only)
       user_row.rs     # User row with role selector
@@ -99,7 +101,7 @@ scripts/
 | Frontend | Leptos 0.8 (SSR + WASM hydration) |
 | Server | Axum 0.8 |
 | Database | PostgreSQL via SQLx |
-| Auth | Google OAuth 2.0 + Email/Password + server-side sessions (tower-sessions) |
+| Auth | Google OAuth 2.0 + Email/Password + Phone OTP (2Factor.in) + server-side sessions (tower-sessions) |
 | Storage | Local filesystem (dev) / Cloudflare R2 (prod) |
 | Styling | SCSS |
 | PWA | manifest.json + service worker |
@@ -131,7 +133,7 @@ Logging mirrors this structure:
 ```
 workout_logs              (one per athlete per day, linked to a wod)
  └── section_logs         (one per section: finish time, rounds, rx/scaled, score_value, weight_kg)
-      └── workout_exercises (one row per set per movement — for WOD sections)
+      └── movement_logs   (per-movement results: actual reps, sets, weight within a section)
 
 workout_logs              (custom / non-WOD)
  └── workout_exercises     (linked directly via workout_log_id)
@@ -158,6 +160,9 @@ workout_logs              (custom / non-WOD)
 | 12 | `add_workout_log_id_back_to_exercises` | `workout_log_id` on `workout_exercises` for custom (non-WOD) logs; parent check constraint |
 | 13 | `add_password_auth` | `google_id` made nullable; `password_hash` column added (email/password auth) |
 | 14 | `add_updated_at_to_workout_logs` | `updated_at TIMESTAMPTZ` on `workout_logs` (required for update queries) |
+| 15 | `create_movement_logs_table` | Per-movement results within a section log (reps, sets, weight) |
+| 16 | `add_phone_auth` | `phone` column on users; `otp_codes` table for SMS login |
+| 17 | `add_gender_to_users` | `gender` column on users (male/female/null) for weight prescriptions |
 
 ### Roles
 
@@ -185,6 +190,18 @@ workout_logs              (custom / non-WOD)
 
 # Or if Postgres is already running:
 SKIP_DOCKER=true ./scripts/init_db.sh
+```
+
+### SMS OTP Setup (optional)
+
+Phone OTP login uses [2Factor.in](https://2factor.in/). Without SMS config, OTP codes are logged to the console (dev mode).
+
+1. Create a 2Factor.in account and get your API key
+2. Create an OTP template (e.g. `GrndItOTP`) in the 2Factor.in dashboard
+3. Add to `.env`:
+
+```env
+APP_SMS__API_KEY=your-2factor-api-key
 ```
 
 ### Google OAuth Setup
@@ -302,6 +319,9 @@ APP_OAUTH__GOOGLE_CLIENT_ID=<google-client-id>
 APP_OAUTH__GOOGLE_CLIENT_SECRET=<google-client-secret>
 APP_OAUTH__REDIRECT_URL=https://<production-domain>/auth/google/callback
 
+# SMS OTP (2Factor.in)
+APP_SMS__API_KEY=<2factor-api-key>
+
 # Storage (Cloudflare R2)
 APP_STORAGE__BACKEND=r2
 APP_STORAGE__R2_ACCOUNT_ID=<cloudflare-account-id>
@@ -332,6 +352,7 @@ GitHub Actions (`.github/workflows/`):
 
 - [x] Google OAuth with role-based access (Athlete/Coach/Admin)
 - [x] Email/password authentication (register + login)
+- [x] Phone OTP authentication via 2Factor.in (cryptographic OTP generation, atomic verification, rate limiting)
 - [x] Server-side sessions in PostgreSQL
 - [x] Environment-aware session cookies (Secure flag in production)
 - [x] Cloudflare R2 storage backend for video uploads
@@ -350,6 +371,9 @@ GitHub Actions (`.github/workflows/`):
 - [x] Workout history: per-entry edit (re-opens log form) and delete (modal confirm)
 - [x] Global toast notifications: top-right, slide-in animation, auto-dismiss (4.75s)
 - [x] Weekly calendar computes dates client-side (no server round-trip on date change)
+- [x] User profile page: edit name/email/phone/gender, set/update password with confirmation
+- [x] Per-movement logging within WOD sections (actual reps, sets, weight per movement)
+- [x] Gender-aware weight prescriptions (male/female weights on WOD movements)
 
 ### Pending
 

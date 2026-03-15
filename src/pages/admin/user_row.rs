@@ -7,13 +7,14 @@ use super::ChangeUserRole;
 pub fn UserRow(user: AuthUser, change_action: ServerAction<ChangeUserRole>) -> impl IntoView {
     let uid = user.id.clone();
     let role_str = user.role.to_string();
+    let user_ident = user.identifier().to_string();
 
     view! {
         <div class="user-row">
             <div class="user-avatar">{user.initials()}</div>
             <div class="user-info">
                 <span class="user-name">{user.display_name}</span>
-                <span class="user-email">{user.email}</span>
+                <span class="user-email">{user_ident}</span>
             </div>
             <div class="user-role-controls">
                 <span class={format!("role-badge role-badge--{}", role_str)}>{role_str.to_uppercase()}</span>

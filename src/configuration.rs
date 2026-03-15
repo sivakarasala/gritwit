@@ -11,6 +11,8 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub oauth: OAuthSettings,
     pub storage: StorageSettings,
+    #[serde(default)]
+    pub sms: Option<SmsSettings>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -28,6 +30,11 @@ pub struct OAuthSettings {
     pub google_client_id: Secret<String>,
     pub google_client_secret: Secret<String>,
     pub redirect_url: String,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct SmsSettings {
+    pub api_key: Secret<String>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

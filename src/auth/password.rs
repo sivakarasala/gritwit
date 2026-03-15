@@ -42,45 +42,17 @@ pub async fn register_with_password(
     email: String,
     password: String,
 ) -> Result<(), ServerFnError> {
-    use argon2::{
-        password_hash::{rand_core::OsRng, SaltString},
-        Argon2, PasswordHasher,
+    use super::{
+        default_role_for_new_user, hash_password, validate_email, validate_name, validate_password,
     };
 
-    // Validate inputs
-    let name = name.trim().to_string();
-    let email = email.trim().to_lowercase();
-
-    if name.is_empty() {
-        return Err(ServerFnError::new("Name is required"));
-    }
-    if name.len() > 100 {
-        return Err(ServerFnError::new("Name is too long"));
-    }
-    if !email.contains('@') || !email.contains('.') {
-        return Err(ServerFnError::new("Invalid email address"));
-    }
-    if password.len() < 8 {
-        return Err(ServerFnError::new("Password must be at least 8 characters"));
-    }
-    if password.len() > 128 {
-        return Err(ServerFnError::new("Password is too long"));
-    }
+    let name = validate_name(&name)?;
+    let email = validate_email(&email)?.ok_or_else(|| ServerFnError::new("Email is required"))?;
+    validate_password(&password)?;
 
     let pool = crate::db::db().await?;
-
-    let salt = SaltString::generate(&mut OsRng);
-    let hash = Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| ServerFnError::new(e.to_string()))?
-        .to_string();
-
-    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
-        .fetch_one(&pool)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
-
-    let role = if count.0 == 0 { "admin" } else { "athlete" };
+    let hash = hash_password(&password)?;
+    let role = default_role_for_new_user(&pool).await?;
 
     let user_id: (uuid::Uuid,) = sqlx::query_as(
         r#"INSERT INTO users (email, display_name, password_hash, role)

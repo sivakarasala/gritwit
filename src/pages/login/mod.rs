@@ -1,12 +1,11 @@
+use crate::auth::clean_error;
+use crate::auth::otp::{SendOtp, VerifyOtp};
 use crate::auth::password::{LoginWithPassword, RegisterWithPassword};
 use leptos::prelude::*;
 
-fn clean_error(e: &ServerFnError) -> String {
-    let raw = e.to_string();
-    raw.strip_prefix("error running server function: ")
-        .or_else(|| raw.strip_prefix("ServerFnError: "))
-        .unwrap_or(&raw)
-        .to_string()
+/// Strip non-digits from phone input.
+fn digits_only(raw: &str) -> String {
+    raw.chars().filter(|c| c.is_ascii_digit()).collect()
 }
 
 #[derive(Clone)]
@@ -19,32 +18,50 @@ struct ToastMsg {
 pub fn LoginPage() -> impl IntoView {
     let login = ServerAction::<LoginWithPassword>::new();
     let register = ServerAction::<RegisterWithPassword>::new();
+    let send_otp = ServerAction::<SendOtp>::new();
+    let verify_otp = ServerAction::<VerifyOtp>::new();
+
     let (show_register, set_show_register) = signal(false);
     let toast: RwSignal<Option<ToastMsg>> = RwSignal::new(None);
 
+    // OTP state — phone stored as digits only
+    let otp_phone = RwSignal::new(String::new()); // digits only
+    let otp_sent = RwSignal::new(false);
+    let otp_code = RwSignal::new(String::new());
+
+    // Which login method is active: "phone", "email"
+    let active_method = RwSignal::new("phone".to_string());
+
     let login_pending = login.pending();
     let register_pending = register.pending();
+    let send_otp_pending = send_otp.pending();
+    let verify_otp_pending = verify_otp.pending();
 
     let register_form: NodeRef<leptos::html::Form> = NodeRef::new();
 
+    // Shared error toast helper
+    let show_error = move |e: &ServerFnError| {
+        let msg = clean_error(e);
+        toast.set(None);
+        leptos::task::spawn_local(async move {
+            toast.set(Some(ToastMsg {
+                message: msg,
+                is_error: true,
+            }));
+        });
+    };
+
+    // Handle email login result
     Effect::new(move |_| match login.value().get() {
         Some(Ok(_)) => {
             #[cfg(feature = "hydrate")]
             let _ = js_sys::eval("window.location.href = '/'");
         }
-        Some(Err(e)) => {
-            let msg = clean_error(&e);
-            toast.set(None);
-            leptos::task::spawn_local(async move {
-                toast.set(Some(ToastMsg {
-                    message: msg,
-                    is_error: true,
-                }));
-            });
-        }
+        Some(Err(e)) => show_error(&e),
         None => {}
     });
 
+    // Handle register result
     Effect::new(move |_| match register.value().get() {
         Some(Ok(_)) => {
             if let Some(form) = register_form.get() {
@@ -53,22 +70,208 @@ pub fn LoginPage() -> impl IntoView {
             #[cfg(feature = "hydrate")]
             let _ = js_sys::eval("window.location.href = '/'");
         }
-        Some(Err(e)) => {
-            let msg = clean_error(&e);
-            toast.set(None);
-            leptos::task::spawn_local(async move {
-                toast.set(Some(ToastMsg {
-                    message: msg,
-                    is_error: true,
-                }));
-            });
-        }
+        Some(Err(e)) => show_error(&e),
         None => {}
     });
+
+    // Handle send OTP result
+    Effect::new(move |_| match send_otp.value().get() {
+        Some(Ok(_)) => {
+            otp_sent.set(true);
+            toast.set(Some(ToastMsg {
+                message: "OTP sent!".to_string(),
+                is_error: false,
+            }));
+        }
+        Some(Err(e)) => show_error(&e),
+        None => {}
+    });
+
+    // Handle verify OTP result
+    Effect::new(move |_| match verify_otp.value().get() {
+        Some(Ok(result)) => {
+            #[cfg(feature = "hydrate")]
+            {
+                let url = if result == crate::auth::OtpResult::NewAccount {
+                    "/profile"
+                } else {
+                    "/"
+                };
+                let _ = js_sys::eval(&format!("window.location.href = '{}'", url));
+            }
+            let _ = result;
+        }
+        Some(Err(e)) => show_error(&e),
+        None => {}
+    });
+
+    let on_send_otp = move |_| {
+        let digits = otp_phone.get_untracked();
+        if digits.is_empty() {
+            toast.set(Some(ToastMsg {
+                message: "Please enter your phone number".to_string(),
+                is_error: true,
+            }));
+            return;
+        }
+        if digits.len() != 10 {
+            toast.set(Some(ToastMsg {
+                message: "Please enter a valid 10-digit phone number".to_string(),
+                is_error: true,
+            }));
+            return;
+        }
+        let full_phone = format!("+91{}", digits);
+        send_otp.dispatch(SendOtp { phone: full_phone });
+    };
+
+    let on_verify_otp = move |_| {
+        let full_phone = format!("+91{}", otp_phone.get_untracked());
+        let code = otp_code.get_untracked();
+        verify_otp.dispatch(VerifyOtp {
+            phone: full_phone,
+            code: code.trim().to_string(),
+        });
+    };
 
     view! {
         <div class="login-page">
             <div class="login-card">
+                // Phone OTP section (primary)
+                <div class="login-methods">
+                    <button
+                        class="method-tab"
+                        class:active=move || active_method.get() == "phone"
+                        on:click=move |_| active_method.set("phone".to_string())
+                    >"Phone"</button>
+                    <button
+                        class="method-tab"
+                        class:active=move || active_method.get() == "email"
+                        on:click=move |_| active_method.set("email".to_string())
+                    >"Email"</button>
+                </div>
+
+                <Show when=move || active_method.get() == "phone">
+                    <div class="auth-form">
+                        <Show when=move || !otp_sent.get()>
+                            <div class="phone-input-row">
+                                <span class="country-code-label">"+91"</span>
+                                <input
+                                    type="tel"
+                                    inputmode="numeric"
+                                    class="phone-number-input"
+                                    placeholder="98765 43210"
+                                    maxlength="10"
+                                    prop:value=move || otp_phone.get()
+                                    on:input=move |ev| {
+                                        let mut val = digits_only(&event_target_value(&ev));
+                                        val.truncate(10);
+                                        otp_phone.set(val);
+                                    }
+                                />
+                            </div>
+                            <button
+                                class="auth-submit"
+                                disabled=move || send_otp_pending.get()
+                                on:click=on_send_otp
+                            >
+                                <Show when=move || send_otp_pending.get()>
+                                    <span class="auth-spinner"></span>
+                                </Show>
+                                {move || if send_otp_pending.get() { "Sending..." } else { "Send OTP" }}
+                            </button>
+                        </Show>
+                        <Show when=move || otp_sent.get()>
+                            <p class="otp-hint">"Enter the 6-digit code sent to "<strong>{move || format!("+91 {}", otp_phone.get())}</strong></p>
+                            <input
+                                type="text"
+                                inputmode="numeric"
+                                maxlength="6"
+                                placeholder="000000"
+                                class="otp-input"
+                                prop:value=move || otp_code.get()
+                                on:input=move |ev| {
+                                    let val = digits_only(&event_target_value(&ev));
+                                    otp_code.set(val);
+                                }
+                            />
+                            <button
+                                class="auth-submit"
+                                disabled=move || verify_otp_pending.get()
+                                on:click=on_verify_otp
+                            >
+                                <Show when=move || verify_otp_pending.get()>
+                                    <span class="auth-spinner"></span>
+                                </Show>
+                                {move || if verify_otp_pending.get() { "Verifying..." } else { "Verify & Sign In" }}
+                            </button>
+                            <button
+                                class="auth-link otp-resend"
+                                on:click=move |_| {
+                                    otp_sent.set(false);
+                                    otp_code.set(String::new());
+                                    send_otp.value().set(None);
+                                }
+                            >"Change number"</button>
+                        </Show>
+                    </div>
+                </Show>
+
+                <Show when=move || active_method.get() == "email">
+                    <Show when=move || !show_register.get()>
+                        <div class="auth-form">
+                            <ActionForm action=login>
+                                <input type="email" name="email" placeholder="Email" required />
+                                <input type="password" name="password" placeholder="Password" required />
+                                <button
+                                    type="submit"
+                                    class="auth-submit"
+                                    disabled=move || login_pending.get()
+                                >
+                                    <Show when=move || login_pending.get()>
+                                        <span class="auth-spinner"></span>
+                                    </Show>
+                                    {move || if login_pending.get() { "Signing in..." } else { "Sign in" }}
+                                </button>
+                            </ActionForm>
+                        </div>
+                        <p class="auth-switch">
+                            "No account? "
+                            <button class="auth-link" on:click=move |_| set_show_register.set(true)>
+                                "Register"
+                            </button>
+                        </p>
+                    </Show>
+
+                    <Show when=move || show_register.get()>
+                        <div class="auth-form">
+                            <ActionForm action=register node_ref=register_form>
+                                <input type="text" name="name" placeholder="Name" required maxlength="100" />
+                                <input type="email" name="email" placeholder="Email" required />
+                                <input type="password" name="password" placeholder="Password (min 8 chars)" required minlength="8" />
+                                <button
+                                    type="submit"
+                                    class="auth-submit"
+                                    disabled=move || register_pending.get()
+                                >
+                                    <Show when=move || register_pending.get()>
+                                        <span class="auth-spinner"></span>
+                                    </Show>
+                                    {move || if register_pending.get() { "Creating account..." } else { "Create account" }}
+                                </button>
+                            </ActionForm>
+                        </div>
+                        <p class="auth-switch">
+                            "Have an account? "
+                            <button class="auth-link" on:click=move |_| set_show_register.set(false)>
+                                "Sign in"
+                            </button>
+                        </p>
+                    </Show>
+                </Show>
+
+                <div class="auth-divider"><span>"or"</span></div>
+
                 <a href="/auth/google/login" rel="external" class="google-btn">
                     <span class="google-icon">
                         <svg viewBox="0 0 24 24" width="18" height="18">
@@ -80,59 +283,6 @@ pub fn LoginPage() -> impl IntoView {
                     </span>
                     "Sign in with Google"
                 </a>
-
-                <div class="auth-divider"><span>"or"</span></div>
-
-                <Show when=move || !show_register.get()>
-                    <div class="auth-form">
-                        <ActionForm action=login>
-                            <input type="email" name="email" placeholder="Email" required />
-                            <input type="password" name="password" placeholder="Password" required />
-                            <button
-                                type="submit"
-                                class="auth-submit"
-                                disabled=move || login_pending.get()
-                            >
-                                <Show when=move || login_pending.get()>
-                                    <span class="auth-spinner"></span>
-                                </Show>
-                                {move || if login_pending.get() { "Signing in..." } else { "Sign in" }}
-                            </button>
-                        </ActionForm>
-                    </div>
-                    <p class="auth-switch">
-                        "No account? "
-                        <button class="auth-link" on:click=move |_| set_show_register.set(true)>
-                            "Register"
-                        </button>
-                    </p>
-                </Show>
-
-                <Show when=move || show_register.get()>
-                    <div class="auth-form">
-                        <ActionForm action=register node_ref=register_form>
-                            <input type="text" name="name" placeholder="Name" required maxlength="100" />
-                            <input type="email" name="email" placeholder="Email" required />
-                            <input type="password" name="password" placeholder="Password (min 8 chars)" required minlength="8" />
-                            <button
-                                type="submit"
-                                class="auth-submit"
-                                disabled=move || register_pending.get()
-                            >
-                                <Show when=move || register_pending.get()>
-                                    <span class="auth-spinner"></span>
-                                </Show>
-                                {move || if register_pending.get() { "Creating account..." } else { "Create account" }}
-                            </button>
-                        </ActionForm>
-                    </div>
-                    <p class="auth-switch">
-                        "Have an account? "
-                        <button class="auth-link" on:click=move |_| set_show_register.set(false)>
-                            "Sign in"
-                        </button>
-                    </p>
-                </Show>
 
                 <p class="login-hint">
                     "Or browse "

@@ -58,6 +58,17 @@ pub async fn require_role(min_role: UserRole) -> Result<AuthUser, ServerFnError>
     }
 }
 
+/// Bundle require_auth + db() + uuid parse into one call.
+pub async fn auth_context() -> Result<(AuthUser, sqlx::PgPool, uuid::Uuid), ServerFnError> {
+    let user = require_auth().await?;
+    let pool = crate::db::db().await?;
+    let user_uuid: uuid::Uuid = user
+        .id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    Ok((user, pool, user_uuid))
+}
+
 pub async fn set_user_id(session: &Session, user_id: &str) -> Result<(), ServerFnError> {
     session
         .insert(USER_ID_KEY, user_id.to_string())

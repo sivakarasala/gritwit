@@ -31,9 +31,10 @@ async fn get_dashboard() -> Result<DashboardData, ServerFnError> {
         .await
         .unwrap_or(0);
     let is_admin = matches!(user.role, crate::auth::UserRole::Admin);
-    let leaderboard = crate::db::leaderboard_db(&pool, 5, &user.email, is_admin)
-        .await
-        .unwrap_or_default();
+    let leaderboard =
+        crate::db::leaderboard_db(&pool, 5, user.email.as_deref().unwrap_or(""), is_admin)
+            .await
+            .unwrap_or_default();
 
     let today = chrono::Local::now().date_naive();
     let day_name = today.format("%A").to_string();

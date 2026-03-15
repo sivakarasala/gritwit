@@ -145,18 +145,12 @@ pub async fn google_callback(
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Check if first user (becomes admin)
-    let user_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
-        .fetch_one(&state.pool)
+    let role = crate::auth::default_role_for_new_user(&state.pool)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let role = if user_count.0 == 0 {
-        "admin"
-    } else {
-        "athlete"
-    };
-
-    // Upsert user
+    // Upsert user — also try to match by email if google_id not found
+    // This links Google login to an existing email/phone account
     let user_id: (uuid::Uuid,) = sqlx::query_as(
         r#"INSERT INTO users (google_id, email, display_name, avatar_url, role)
            VALUES ($1, $2, $3, $4, $5::user_role)

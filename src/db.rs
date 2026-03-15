@@ -45,76 +45,63 @@ pub struct WorkoutLog {
 // ---- User Queries ----
 
 #[cfg(feature = "ssr")]
+#[derive(sqlx::FromRow)]
+struct UserRow {
+    id: String,
+    email: Option<String>,
+    phone: Option<String>,
+    display_name: String,
+    avatar_url: Option<String>,
+    role: String,
+    gender: Option<String>,
+}
+
+#[cfg(feature = "ssr")]
+impl From<UserRow> for crate::auth::AuthUser {
+    fn from(row: UserRow) -> Self {
+        let role = match row.role.as_str() {
+            "admin" => crate::auth::UserRole::Admin,
+            "coach" => crate::auth::UserRole::Coach,
+            _ => crate::auth::UserRole::Athlete,
+        };
+        crate::auth::AuthUser {
+            id: row.id,
+            email: row.email,
+            phone: row.phone,
+            display_name: row.display_name,
+            avatar_url: row.avatar_url,
+            role,
+            gender: row.gender,
+        }
+    }
+}
+
+#[cfg(feature = "ssr")]
 pub async fn get_user_by_id(
     pool: &sqlx::PgPool,
     id: uuid::Uuid,
 ) -> Result<crate::auth::AuthUser, sqlx::Error> {
-    let row: (
-        String,
-        String,
-        String,
-        Option<String>,
-        String,
-        Option<String>,
-    ) = sqlx::query_as(
-        r#"SELECT id::text, email, display_name, avatar_url, role::text, gender::text
+    let row: UserRow = sqlx::query_as(
+        r#"SELECT id::text, email, phone, display_name, avatar_url, role::text, gender::text
            FROM users WHERE id = $1"#,
     )
     .bind(id)
     .fetch_one(pool)
     .await?;
 
-    let role = match row.4.as_str() {
-        "admin" => crate::auth::UserRole::Admin,
-        "coach" => crate::auth::UserRole::Coach,
-        _ => crate::auth::UserRole::Athlete,
-    };
-
-    Ok(crate::auth::AuthUser {
-        id: row.0,
-        email: row.1,
-        display_name: row.2,
-        avatar_url: row.3,
-        role,
-        gender: row.5,
-    })
+    Ok(row.into())
 }
 
 #[cfg(feature = "ssr")]
 pub async fn list_users_db(pool: &sqlx::PgPool) -> Result<Vec<crate::auth::AuthUser>, sqlx::Error> {
-    #[allow(clippy::type_complexity)]
-    let rows: Vec<(
-        String,
-        String,
-        String,
-        Option<String>,
-        String,
-        Option<String>,
-    )> = sqlx::query_as(
-        r#"SELECT id::text, email, display_name, avatar_url, role::text, gender::text
+    let rows: Vec<UserRow> = sqlx::query_as(
+        r#"SELECT id::text, email, phone, display_name, avatar_url, role::text, gender::text
            FROM users ORDER BY created_at"#,
     )
     .fetch_all(pool)
     .await?;
 
-    Ok(rows
-        .into_iter()
-        .map(|row| {
-            let role = match row.4.as_str() {
-                "admin" => crate::auth::UserRole::Admin,
-                "coach" => crate::auth::UserRole::Coach,
-                _ => crate::auth::UserRole::Athlete,
-            };
-            crate::auth::AuthUser {
-                id: row.0,
-                email: row.1,
-                display_name: row.2,
-                avatar_url: row.3,
-                role,
-                gender: row.5,
-            }
-        })
-        .collect())
+    Ok(rows.into_iter().map(Into::into).collect())
 }
 
 #[cfg(feature = "ssr")]
@@ -132,21 +119,30 @@ pub async fn update_user_role_db(
 }
 
 #[cfg(feature = "ssr")]
-pub async fn update_user_gender_db(
+pub async fn update_user_profile_db(
     pool: &sqlx::PgPool,
     user_id: uuid::Uuid,
-    gender: &str,
+    display_name: &str,
+    email: Option<&str>,
+    phone: Option<&str>,
+    gender: Option<&str>,
 ) -> Result<(), sqlx::Error> {
-    let gender_val: Option<&str> = if gender.is_empty() {
-        None
-    } else {
-        Some(gender)
-    };
-    sqlx::query("UPDATE users SET gender = $1::gender, updated_at = now() WHERE id = $2")
-        .bind(gender_val)
-        .bind(user_id)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        r#"UPDATE users
+           SET display_name = $1,
+               email = $2,
+               phone = $3,
+               gender = $4::gender,
+               updated_at = now()
+           WHERE id = $5"#,
+    )
+    .bind(display_name)
+    .bind(email)
+    .bind(phone)
+    .bind(gender)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
