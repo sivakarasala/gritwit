@@ -191,17 +191,8 @@ pub fn WodScoreForm(
                     );
                 }
                 Err(e) => {
-                    let raw = e.to_string();
-                    let clean = raw
-                        .strip_prefix("error running server function: ")
-                        .or_else(|| raw.strip_prefix("ServerFnError: "))
-                        .unwrap_or(&raw)
-                        .to_string();
-                    submit_result.set(None);
-                    let result_signal = submit_result;
-                    leptos::task::spawn_local(async move {
-                        result_signal.set(Some(Err(clean)));
-                    });
+                    let msg = super::friendly_error(&e.to_string());
+                    submit_result.set(Some(Err(msg)));
                 }
             }
         });
@@ -234,25 +225,20 @@ pub fn WodScoreForm(
                     ></textarea>
                 </div>
 
-                {move || submit_result.get().map(|r| match r {
-                    Ok(_) => view! {
-                        <div class="score-success">
-                            <span class="score-success-icon"></span>
-                            "Score logged!"
-                        </div>
-                    }.into_any(),
-                    Err(e) => view! {
-                        <div class="score-error">{e}</div>
-                    }.into_any(),
+                {move || submit_result.get().and_then(|r| r.err()).map(|e| view! {
+                    <div class="score-inline-error">{e}</div>
                 })}
 
                 <button
                     class="score-submit"
                     class:btn--loading=move || submitting.get()
-                    disabled=move || submitting.get()
+                    class:btn--success=move || matches!(submit_result.get(), Some(Ok(_)))
+                    disabled=move || submitting.get() || matches!(submit_result.get(), Some(Ok(_)))
                     on:click=on_submit
                 >
-                    {move || if submitting.get() {
+                    {move || if matches!(submit_result.get(), Some(Ok(_))) {
+                        "\u{2713} Saved!".to_string()
+                    } else if submitting.get() {
                         "Submitting...".to_string()
                     } else if is_edit.get() {
                         "Update Score".to_string()

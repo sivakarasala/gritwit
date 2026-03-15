@@ -10,6 +10,26 @@ use leptos::prelude::*;
 use server_fns::*;
 use wod_score_form::WodScoreForm;
 
+/// Turn raw server errors into user-friendly messages.
+pub(crate) fn friendly_error(raw: &str) -> String {
+    let clean = raw
+        .strip_prefix("error running server function: ")
+        .or_else(|| raw.strip_prefix("ServerFnError: "))
+        .unwrap_or(raw);
+
+    if clean.contains("lookup address")
+        || clean.contains("connection refused")
+        || clean.contains("communicating with database")
+        || clean.contains("timed out")
+    {
+        "Unable to reach the server. Please check your connection and try again.".to_string()
+    } else if clean.contains("Unauthorized") {
+        "Your session has expired. Please log in again.".to_string()
+    } else {
+        clean.to_string()
+    }
+}
+
 // ---- Page Component ----
 
 #[component]

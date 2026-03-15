@@ -62,6 +62,7 @@ pub fn App() -> impl IntoView {
         <Title text="GrindIt"/>
 
         <Router>
+            <ScrollReset/>
             <Transition fallback=|| view! { <div class="login-page"><p>"Loading..."</p></div> }>
                 {move || {
                     user.get().map(|result| {
@@ -272,6 +273,23 @@ fn InstallBanner() -> impl IntoView {
             .into_any()
         }
     }
+}
+
+/// Reset scroll and dismiss keyboard on route change (fixes iOS viewport bugs).
+#[component]
+fn ScrollReset() -> impl IntoView {
+    let pathname = leptos_router::hooks::use_location().pathname;
+    Effect::new(move |_| {
+        let _ = pathname.get();
+        #[cfg(feature = "hydrate")]
+        {
+            // Blur active element + scroll main to top via JS
+            let _ = js_sys::eval(
+                "if(document.activeElement)document.activeElement.blur();\
+                 var m=document.querySelector('main');if(m){m.scrollTop=0}",
+            );
+        }
+    });
 }
 
 #[component]
