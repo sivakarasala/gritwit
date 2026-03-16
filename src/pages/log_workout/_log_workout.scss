@@ -445,7 +445,7 @@
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 1rem;
 
   &::-webkit-calendar-picker-indicator {
     filter: var(--input-filter);
@@ -658,7 +658,7 @@
   border: 1px solid var(--border);
   background: var(--bg-base);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 1rem;
 }
 
 .add-set-btn {
