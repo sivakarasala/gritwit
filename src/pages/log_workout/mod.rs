@@ -46,13 +46,6 @@ pub fn LogWorkoutPage() -> impl IntoView {
     let wod_id_param =
         Memo::new(move |_| params.read().get("wod_id").unwrap_or_default().to_string());
     let edit_id = Memo::new(move |_| params.read().get("edit").unwrap_or_default().to_string());
-    let edit_log_id = Memo::new(move |_| {
-        params
-            .read()
-            .get("edit_log")
-            .unwrap_or_default()
-            .to_string()
-    });
 
     let initial_tab = if !params
         .read_untracked()
@@ -83,7 +76,7 @@ pub fn LogWorkoutPage() -> impl IntoView {
 
             {move || {
                 if active_tab.get() == "wod" {
-                    view! { <WodScoreFlow section_id=section_id.get() wod_id=wod_id_param.get() edit_log_id=edit_log_id.get()/> }.into_any()
+                    view! { <WodScoreFlow section_id=section_id.get() wod_id=wod_id_param.get()/> }.into_any()
                 } else {
                     view! { <CustomLogFlow edit_id=edit_id.get()/> }.into_any()
                 }
@@ -94,10 +87,9 @@ pub fn LogWorkoutPage() -> impl IntoView {
 
 /// WOD scoring flow: either loads via section_id or wod_id, or shows a WOD picker.
 #[component]
-fn WodScoreFlow(section_id: String, wod_id: String, edit_log_id: String) -> impl IntoView {
+fn WodScoreFlow(section_id: String, wod_id: String) -> impl IntoView {
     let selected_wod_id = RwSignal::new(wod_id.clone());
     let focus_section_id = section_id.clone();
-    let edit_log_signal = RwSignal::new(edit_log_id.clone());
 
     let resolved_wod = Resource::new(
         move || (section_id.clone(), selected_wod_id.get()),
@@ -112,26 +104,12 @@ fn WodScoreFlow(section_id: String, wod_id: String, edit_log_id: String) -> impl
         },
     );
 
-    let existing_scores = Resource::new(
-        move || edit_log_id.clone(),
-        |lid| async move {
-            if lid.is_empty() {
-                return Ok((String::new(), vec![], vec![]));
-            }
-            get_wod_scores_for_edit(lid).await
-        },
-    );
-
     let todays_wods = Resource::new(|| (), |_| get_todays_wods());
 
     view! {
         <Suspense fallback=|| view! { <p class="loading">"Loading..."</p> }>
             {move || {
                 let wod_data = resolved_wod.get().and_then(|r| r.ok()).flatten();
-                let (existing_notes, scores, movement_logs) = existing_scores
-                    .get()
-                    .and_then(|r| r.ok())
-                    .unwrap_or_default();
                 let focus = focus_section_id.clone();
 
                 if let Some((wod, sections, _movements)) = wod_data {
@@ -140,10 +118,6 @@ fn WodScoreFlow(section_id: String, wod_id: String, edit_log_id: String) -> impl
                             wod=wod
                             sections=sections
                             focus_section=focus
-                            existing_scores=scores
-                            existing_movement_logs=movement_logs
-                            existing_notes=existing_notes
-                            edit_log_id=edit_log_signal
                         />
                     }.into_any()
                 } else {

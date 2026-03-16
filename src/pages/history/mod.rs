@@ -1,7 +1,9 @@
 mod history_card;
 
 use crate::components::DeleteModal;
-use crate::db::{MovementLogWithName, SectionScoreWithMeta, WorkoutExercise, WorkoutLog};
+use crate::db::{
+    MovementLogSet, MovementLogWithName, SectionScoreWithMeta, WorkoutExercise, WorkoutLog,
+};
 use crate::pages::wod::week_calendar::WeeklyCalendar;
 use history_card::HistoryCard;
 use leptos::prelude::*;
@@ -15,6 +17,7 @@ pub(crate) struct HistoryEntry {
     pub exercises: Vec<WorkoutExercise>,
     pub section_scores: Vec<SectionScoreWithMeta>,
     pub movement_logs: Vec<MovementLogWithName>,
+    pub movement_log_sets: Vec<MovementLogSet>,
 }
 
 #[server]
@@ -31,6 +34,83 @@ async fn delete_history_entry(log_id: String) -> Result<(), ServerFnError> {
     crate::db::delete_workout_log_db(&pool, log_uuid, user_uuid)
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
+    Ok(())
+}
+
+#[server]
+pub(crate) async fn update_movement_log(
+    movement_log_id: String,
+    reps: Option<i32>,
+    sets: Option<i32>,
+    weight_kg: Option<f32>,
+    notes: Option<String>,
+) -> Result<(), ServerFnError> {
+    let user = crate::auth::session::require_auth().await?;
+    let pool = crate::db::db().await?;
+    let ml_uuid: uuid::Uuid = movement_log_id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    let user_uuid: uuid::Uuid = user
+        .id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    crate::db::update_movement_log_db(&pool, ml_uuid, user_uuid, reps, sets, weight_kg, notes)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    Ok(())
+}
+
+#[server]
+pub(crate) async fn update_movement_log_set(
+    set_id: String,
+    reps: Option<i32>,
+    weight_kg: Option<f32>,
+) -> Result<(), ServerFnError> {
+    let user = crate::auth::session::require_auth().await?;
+    let pool = crate::db::db().await?;
+    let set_uuid: uuid::Uuid = set_id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    let user_uuid: uuid::Uuid = user
+        .id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    crate::db::update_movement_log_set_db(&pool, set_uuid, user_uuid, reps, weight_kg)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    Ok(())
+}
+
+#[server]
+pub(crate) async fn update_section_score(
+    section_log_id: String,
+    finish_time_seconds: Option<i32>,
+    rounds_completed: Option<i32>,
+    extra_reps: Option<i32>,
+    weight_kg: Option<f32>,
+    is_rx: bool,
+) -> Result<(), ServerFnError> {
+    let user = crate::auth::session::require_auth().await?;
+    let pool = crate::db::db().await?;
+    let sl_uuid: uuid::Uuid = section_log_id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    let user_uuid: uuid::Uuid = user
+        .id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    crate::db::update_section_log_db(
+        &pool,
+        sl_uuid,
+        user_uuid,
+        finish_time_seconds,
+        rounds_completed,
+        extra_reps,
+        weight_kg,
+        is_rx,
+    )
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))?;
     Ok(())
 }
 
@@ -80,17 +160,20 @@ async fn get_history_for_date(date: String) -> Result<Vec<HistoryEntry>, ServerF
             .await
             .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-        // Get section scores and movement logs for WOD workouts
-        let (section_scores, movement_logs) = if log.wod_id.is_some() {
-            let scores = crate::db::get_section_scores_with_meta_db(&pool, log_uuid)
-                .await
-                .map_err(|e| ServerFnError::new(e.to_string()))?;
-            let movements = crate::db::get_movement_logs_with_names_db(&pool, log_uuid)
-                .await
-                .map_err(|e| ServerFnError::new(e.to_string()))?;
-            (scores, movements)
+        // Get section scores, movement logs, and per-set data for WOD workouts
+        let (section_scores, movement_logs, movement_log_sets) = if log.wod_id.is_some() {
+            let (scores, movements, sets) = tokio::join!(
+                crate::db::get_section_scores_with_meta_db(&pool, log_uuid),
+                crate::db::get_movement_logs_with_names_db(&pool, log_uuid),
+                crate::db::get_movement_log_sets_db(&pool, log_uuid),
+            );
+            (
+                scores.map_err(|e| ServerFnError::new(e.to_string()))?,
+                movements.map_err(|e| ServerFnError::new(e.to_string()))?,
+                sets.map_err(|e| ServerFnError::new(e.to_string()))?,
+            )
         } else {
-            (vec![], vec![])
+            (vec![], vec![], vec![])
         };
 
         entries.push(HistoryEntry {
@@ -99,6 +182,7 @@ async fn get_history_for_date(date: String) -> Result<Vec<HistoryEntry>, ServerF
             exercises,
             section_scores,
             movement_logs,
+            movement_log_sets,
         });
     }
 

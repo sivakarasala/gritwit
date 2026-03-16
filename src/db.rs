@@ -380,6 +380,7 @@ pub struct SectionScoreWithMeta {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
 pub struct MovementLogWithName {
+    pub id: String,
     pub section_log_id: String,
     pub exercise_name: String,
     pub reps: Option<i32>,
@@ -411,6 +412,8 @@ pub struct MovementLogInput {
     pub sets: Option<i32>,
     pub weight_kg: Option<f32>,
     pub notes: Option<String>,
+    #[serde(default)]
+    pub set_details: Vec<MovementLogSetInput>,
 }
 
 /// A saved per-movement result (read from DB).
@@ -424,6 +427,26 @@ pub struct MovementLog {
     pub sets: Option<i32>,
     pub weight_kg: Option<f32>,
     pub notes: Option<String>,
+}
+
+/// Per-set data for a movement log (e.g., set 1: 9 reps @ 60kg, set 2: 8 reps @ 60kg).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct MovementLogSet {
+    pub id: String,
+    pub movement_log_id: String,
+    pub set_number: i32,
+    pub reps: Option<i32>,
+    pub weight_kg: Option<f32>,
+    pub notes: Option<String>,
+}
+
+/// Input for inserting a single set row.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MovementLogSetInput {
+    pub set_number: i32,
+    pub reps: Option<i32>,
+    pub weight_kg: Option<f32>,
 }
 
 /// Leaderboard entry for a specific section.
@@ -946,9 +969,10 @@ pub async fn submit_wod_score_db(
                 .movement_id
                 .parse()
                 .map_err(|e| sqlx::Error::Protocol(format!("Invalid movement_id: {}", e)))?;
-            sqlx::query(
+            let (ml_id,): (uuid::Uuid,) = sqlx::query_as(
                 r#"INSERT INTO movement_logs (section_log_id, movement_id, reps, sets, weight_kg, notes)
-                   VALUES ($1, $2, $3, $4, $5, $6)"#,
+                   VALUES ($1, $2, $3, $4, $5, $6)
+                   RETURNING id"#,
             )
             .bind(section_log_id)
             .bind(mov_id)
@@ -956,8 +980,22 @@ pub async fn submit_wod_score_db(
             .bind(ml.sets)
             .bind(ml.weight_kg)
             .bind(&ml.notes)
-            .execute(&mut *tx)
+            .fetch_one(&mut *tx)
             .await?;
+
+            // Insert per-set detail rows
+            for sd in &ml.set_details {
+                sqlx::query(
+                    r#"INSERT INTO movement_log_sets (movement_log_id, set_number, reps, weight_kg)
+                       VALUES ($1, $2, $3, $4)"#,
+                )
+                .bind(ml_id)
+                .bind(sd.set_number)
+                .bind(sd.reps)
+                .bind(sd.weight_kg)
+                .execute(&mut *tx)
+                .await?;
+            }
         }
     }
 
@@ -1049,7 +1087,7 @@ pub async fn get_movement_logs_with_names_db(
     workout_log_id: uuid::Uuid,
 ) -> Result<Vec<MovementLogWithName>, sqlx::Error> {
     sqlx::query_as::<_, MovementLogWithName>(
-        r#"SELECT ml.section_log_id::text, e.name as exercise_name,
+        r#"SELECT ml.id::text, ml.section_log_id::text, e.name as exercise_name,
                   ml.reps, ml.sets, ml.weight_kg, ml.notes
            FROM movement_logs ml
            JOIN wod_movements wm ON wm.id = ml.movement_id
@@ -1061,6 +1099,113 @@ pub async fn get_movement_logs_with_names_db(
     .bind(workout_log_id)
     .fetch_all(pool)
     .await
+}
+
+/// Update a single movement log's reps, sets, weight, and notes (with user ownership check).
+#[cfg(feature = "ssr")]
+pub async fn update_movement_log_db(
+    pool: &sqlx::PgPool,
+    movement_log_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+    reps: Option<i32>,
+    sets: Option<i32>,
+    weight_kg: Option<f32>,
+    notes: Option<String>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"UPDATE movement_logs ml
+           SET reps = $2, sets = $3, weight_kg = $4, notes = $5
+           FROM section_logs sl
+           JOIN workout_logs wl ON wl.id = sl.workout_log_id
+           WHERE ml.id = $1 AND ml.section_log_id = sl.id AND wl.user_id = $6"#,
+    )
+    .bind(movement_log_id)
+    .bind(reps)
+    .bind(sets)
+    .bind(weight_kg)
+    .bind(notes)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Get per-set data for movement logs of a workout.
+#[cfg(feature = "ssr")]
+pub async fn get_movement_log_sets_db(
+    pool: &sqlx::PgPool,
+    workout_log_id: uuid::Uuid,
+) -> Result<Vec<MovementLogSet>, sqlx::Error> {
+    sqlx::query_as::<_, MovementLogSet>(
+        r#"SELECT mls.id::text, mls.movement_log_id::text, mls.set_number,
+                  mls.reps, mls.weight_kg, mls.notes
+           FROM movement_log_sets mls
+           JOIN movement_logs ml ON ml.id = mls.movement_log_id
+           JOIN section_logs sl ON sl.id = ml.section_log_id
+           WHERE sl.workout_log_id = $1
+           ORDER BY mls.movement_log_id, mls.set_number"#,
+    )
+    .bind(workout_log_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Update a section log's score fields (with user ownership check).
+#[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
+pub async fn update_section_log_db(
+    pool: &sqlx::PgPool,
+    section_log_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+    finish_time_seconds: Option<i32>,
+    rounds_completed: Option<i32>,
+    extra_reps: Option<i32>,
+    weight_kg: Option<f32>,
+    is_rx: bool,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"UPDATE section_logs sl
+           SET finish_time_seconds = $2, rounds_completed = $3, extra_reps = $4,
+               weight_kg = $5, is_rx = $6
+           FROM workout_logs wl
+           WHERE sl.id = $1 AND sl.workout_log_id = wl.id AND wl.user_id = $7"#,
+    )
+    .bind(section_log_id)
+    .bind(finish_time_seconds)
+    .bind(rounds_completed)
+    .bind(extra_reps)
+    .bind(weight_kg)
+    .bind(is_rx)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Update a single movement_log_set row (with user ownership check).
+#[cfg(feature = "ssr")]
+pub async fn update_movement_log_set_db(
+    pool: &sqlx::PgPool,
+    set_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+    reps: Option<i32>,
+    weight_kg: Option<f32>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"UPDATE movement_log_sets mls
+           SET reps = $2, weight_kg = $3
+           FROM movement_logs ml
+           JOIN section_logs sl ON sl.id = ml.section_log_id
+           JOIN workout_logs wl ON wl.id = sl.workout_log_id
+           WHERE mls.id = $1 AND mls.movement_log_id = ml.id AND wl.user_id = $4"#,
+    )
+    .bind(set_id)
+    .bind(reps)
+    .bind(weight_kg)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 /// Section leaderboard: top scores for a given section.

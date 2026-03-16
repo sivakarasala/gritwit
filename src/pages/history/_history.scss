@@ -174,14 +174,62 @@
 }
 
 .result-section-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   padding: 0.35rem 0;
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
 
   &:last-child {
     border-bottom: none;
+  }
+
+  &--editing {
+    background: var(--bg-base);
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin: 0.15rem 0;
+  }
+}
+
+.result-section-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.section-edit-form {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.section-edit-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.section-edit-rx {
+  display: flex;
+  align-items: center;
+}
+
+.rx-toggle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  color: #f39c12;
+  background: rgba(243, 156, 18, 0.15);
+  transition: background 0.15s, color 0.15s;
+
+  &--active {
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.15);
   }
 }
 
@@ -225,6 +273,138 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.result-movement-edit-hint {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  opacity: 0.6;
+}
+
+// Editable movement rows
+.result-movement-row--editing {
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--bg-base);
+  border-radius: 8px;
+  padding: 0.5rem;
+  margin: 0.15rem 0;
+}
+
+.result-movement-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.movement-edit-form {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.movement-edit-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.movement-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  input {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.35rem 0.5rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+    width: 100%;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+
+  &--notes {
+    input {
+      width: 100%;
+    }
+  }
+}
+
+.movement-set-edit-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.movement-set-edit-row {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.movement-set-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  min-width: 2.5rem;
+}
+
+.movement-edit-error {
+  font-size: 0.7rem;
+  color: #ff6b6b;
+}
+
+.movement-edit-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  margin-top: 0.2rem;
+}
+
+.movement-edit-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &--cancel {
+    background: transparent;
+    color: var(--text-dim);
+  }
+
+  &--save {
+    background: var(--accent);
+    color: #fff;
+
+    &:disabled {
+      opacity: 0.6;
+    }
+  }
 }
 
 // Exercise details inside a result card

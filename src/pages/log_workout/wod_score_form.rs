@@ -1,25 +1,16 @@
-use crate::db::{MovementLog, MovementLogInput, SectionScoreInput, Wod, WodSection};
+use crate::db::{MovementLogInput, MovementLogSetInput, SectionScoreInput, Wod, WodSection};
 use leptos::prelude::*;
 
 use super::section_score_card::{SectionScoreCard, SectionScoreState};
 
-/// The actual scoring form for a WOD.
+/// The actual scoring form for a WOD (new submissions only; editing happens inline on history).
 #[component]
-pub fn WodScoreForm(
-    wod: Wod,
-    sections: Vec<WodSection>,
-    focus_section: String,
-    existing_scores: Vec<crate::db::SectionLog>,
-    existing_movement_logs: Vec<MovementLog>,
-    existing_notes: String,
-    edit_log_id: RwSignal<String>,
-) -> impl IntoView {
-    let is_edit = Memo::new(move |_| !edit_log_id.get().is_empty());
+pub fn WodScoreForm(wod: Wod, sections: Vec<WodSection>, focus_section: String) -> impl IntoView {
     let submit_result = RwSignal::new(Option::<Result<String, String>>::None);
     let submitting = RwSignal::new(false);
 
     let workout_date = RwSignal::new(wod.programmed_date.clone());
-    let overall_notes = RwSignal::new(existing_notes);
+    let overall_notes = RwSignal::new(String::new());
 
     // When a specific section is selected, only show that one
     let visible_sections: Vec<WodSection> = if !focus_section.is_empty() {
@@ -31,58 +22,24 @@ pub fn WodScoreForm(
         sections
     };
 
-    // Create signals for each section, pre-populated from existing scores if editing
     let section_states: Vec<SectionScoreState> = visible_sections
         .iter()
-        .map(|s| {
-            let ex = existing_scores.iter().find(|sl| sl.section_id == s.id);
-            // Filter movement logs belonging to this section's score log
-            let section_mov_logs: Vec<MovementLog> = ex
-                .map(|sl| {
-                    existing_movement_logs
-                        .iter()
-                        .filter(|ml| ml.section_log_id == sl.id)
-                        .cloned()
-                        .collect()
-                })
-                .unwrap_or_default();
-            SectionScoreState {
-                section_id: s.id.clone(),
-                section_type: s.section_type.clone(),
-                title: s.title.clone().unwrap_or_else(|| s.section_type.clone()),
-                time_cap: s.time_cap_minutes,
-                rounds: s.rounds,
-                is_rx: RwSignal::new(ex.map(|e| e.is_rx).unwrap_or(true)),
-                skipped: RwSignal::new(ex.map(|e| e.skipped).unwrap_or(false)),
-                minutes: RwSignal::new(
-                    ex.and_then(|e| e.finish_time_seconds)
-                        .map(|t| (t / 60).to_string())
-                        .unwrap_or_default(),
-                ),
-                seconds: RwSignal::new(
-                    ex.and_then(|e| e.finish_time_seconds)
-                        .map(|t| (t % 60).to_string())
-                        .unwrap_or_default(),
-                ),
-                rounds_completed: RwSignal::new(
-                    ex.and_then(|e| e.rounds_completed)
-                        .map(|r| r.to_string())
-                        .unwrap_or_default(),
-                ),
-                extra_reps: RwSignal::new(
-                    ex.and_then(|e| e.extra_reps)
-                        .map(|r| r.to_string())
-                        .unwrap_or_default(),
-                ),
-                weight_kg: RwSignal::new(
-                    ex.and_then(|e| e.weight_kg)
-                        .map(|w| w.to_string())
-                        .unwrap_or_default(),
-                ),
-                notes: RwSignal::new(ex.and_then(|e| e.notes.clone()).unwrap_or_default()),
-                movement_states: RwSignal::new(Vec::new()),
-                existing_movement_logs: section_mov_logs,
-            }
+        .map(|s| SectionScoreState {
+            section_id: s.id.clone(),
+            section_type: s.section_type.clone(),
+            title: s.title.clone().unwrap_or_else(|| s.section_type.clone()),
+            time_cap: s.time_cap_minutes,
+            rounds: s.rounds,
+            is_rx: RwSignal::new(true),
+            skipped: RwSignal::new(false),
+            minutes: RwSignal::new(String::new()),
+            seconds: RwSignal::new(String::new()),
+            rounds_completed: RwSignal::new(String::new()),
+            extra_reps: RwSignal::new(String::new()),
+            weight_kg: RwSignal::new(String::new()),
+            notes: RwSignal::new(String::new()),
+            movement_states: RwSignal::new(Vec::new()),
+            existing_movement_logs: vec![],
         })
         .collect();
 
@@ -132,7 +89,7 @@ pub fn WodScoreForm(
                     .get_untracked()
                     .iter()
                     .filter_map(|m| {
-                        let (reps, sets, w) = if !m.set_rows.is_empty() {
+                        let (reps, sets, w, set_details) = if !m.set_rows.is_empty() {
                             // Aggregate from per-set rows
                             let total_reps: i32 = m
                                 .set_rows
@@ -146,6 +103,17 @@ pub fn WodScoreForm(
                                 .iter()
                                 .filter_map(|sr| sr.weight_kg.get_untracked().parse::<f32>().ok())
                                 .reduce(f32::max);
+                            // Collect per-set details
+                            let details: Vec<MovementLogSetInput> = m
+                                .set_rows
+                                .iter()
+                                .enumerate()
+                                .map(|(i, sr)| MovementLogSetInput {
+                                    set_number: (i + 1) as i32,
+                                    reps: sr.reps.get_untracked().parse().ok(),
+                                    weight_kg: sr.weight_kg.get_untracked().parse().ok(),
+                                })
+                                .collect();
                             (
                                 if total_reps > 0 {
                                     Some(total_reps)
@@ -154,12 +122,14 @@ pub fn WodScoreForm(
                                 },
                                 Some(num_sets),
                                 max_weight,
+                                details,
                             )
                         } else {
                             (
                                 m.reps.get_untracked().parse().ok(),
                                 m.sets.get_untracked().parse().ok(),
                                 m.weight_kg.get_untracked().parse().ok(),
+                                vec![],
                             )
                         };
                         let n = m.notes.get_untracked();
@@ -171,6 +141,7 @@ pub fn WodScoreForm(
                                 sets,
                                 weight_kg: w,
                                 notes: if n.is_empty() { None } else { Some(n) },
+                                set_details,
                             })
                         } else {
                             None
@@ -204,26 +175,16 @@ pub fn WodScoreForm(
         let date = workout_date.get_untracked();
         let notes = overall_notes.get_untracked();
 
-        let log_id = edit_log_id.get_untracked();
         let nav = navigate.clone();
         leptos::task::spawn_local(async move {
             let nav_date = date.clone();
-            let result = if log_id.is_empty() {
-                super::server_fns::submit_wod_scores(wod_id, date, notes, scores_json)
-                    .await
-                    .map(|_| ())
-            } else {
-                super::server_fns::update_wod_scores(log_id, date, notes, scores_json).await
-            };
+            let result = super::server_fns::submit_wod_scores(wod_id, date, notes, scores_json)
+                .await
+                .map(|_| ());
             submitting.set(false);
             match result {
                 Ok(_) => {
-                    let msg = if is_edit.get_untracked() {
-                        "Score updated!"
-                    } else {
-                        "Score logged!"
-                    };
-                    submit_result.set(Some(Ok(msg.to_string())));
+                    submit_result.set(Some(Ok("Score logged!".to_string())));
                     set_timeout(
                         move || nav(&format!("/history?date={}", nav_date), Default::default()),
                         std::time::Duration::from_millis(800),
@@ -279,8 +240,6 @@ pub fn WodScoreForm(
                         "\u{2713} Saved!".to_string()
                     } else if submitting.get() {
                         "Submitting...".to_string()
-                    } else if is_edit.get() {
-                        "Update Score".to_string()
                     } else {
                         "Log Score".to_string()
                     }}

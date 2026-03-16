@@ -46,12 +46,12 @@ src/
       helpers.rs      # WOD type/phase helpers
     log_workout/
       mod.rs          # LogWorkoutPage, tab switcher (WOD / Custom), query param routing
-      wod_score_form.rs     # Per-section score entry form; edit mode via ?edit_log= param
+      wod_score_form.rs     # Per-section score entry form (new submissions only)
       section_score_card.rs # Individual section score card (Rx/skip toggles, time/rounds/weight)
       custom_log.rs   # Custom (non-WOD) workout logger
       exercise_entry_card.rs  # Exercise card for custom log
       set_row.rs      # Set input row (reps, weight, duration, notes)
-      server_fns.rs   # Server functions: save/update WOD scores and custom logs
+      server_fns.rs   # Server functions: save WOD scores and custom logs
     history/
       mod.rs          # HistoryPage, server fns: fetch/delete entries, reactive feed
       history_card.rs # Result card with edit (→ /log?edit) and delete (modal confirm) buttons
