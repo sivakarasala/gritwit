@@ -1,4 +1,4 @@
-use crate::db::{MovementLogInput, SectionScoreInput, Wod, WodSection};
+use crate::db::{MovementLog, MovementLogInput, SectionScoreInput, Wod, WodSection};
 use leptos::prelude::*;
 
 use super::section_score_card::{SectionScoreCard, SectionScoreState};
@@ -10,6 +10,7 @@ pub fn WodScoreForm(
     sections: Vec<WodSection>,
     focus_section: String,
     existing_scores: Vec<crate::db::SectionLog>,
+    existing_movement_logs: Vec<MovementLog>,
     existing_notes: String,
     edit_log_id: RwSignal<String>,
 ) -> impl IntoView {
@@ -35,6 +36,16 @@ pub fn WodScoreForm(
         .iter()
         .map(|s| {
             let ex = existing_scores.iter().find(|sl| sl.section_id == s.id);
+            // Filter movement logs belonging to this section's score log
+            let section_mov_logs: Vec<MovementLog> = ex
+                .map(|sl| {
+                    existing_movement_logs
+                        .iter()
+                        .filter(|ml| ml.section_log_id == sl.id)
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default();
             SectionScoreState {
                 section_id: s.id.clone(),
                 section_type: s.section_type.clone(),
@@ -70,6 +81,7 @@ pub fn WodScoreForm(
                 ),
                 notes: RwSignal::new(ex.and_then(|e| e.notes.clone()).unwrap_or_default()),
                 movement_states: RwSignal::new(Vec::new()),
+                existing_movement_logs: section_mov_logs,
             }
         })
         .collect();
@@ -120,9 +132,36 @@ pub fn WodScoreForm(
                     .get_untracked()
                     .iter()
                     .filter_map(|m| {
-                        let reps: Option<i32> = m.reps.get_untracked().parse().ok();
-                        let sets: Option<i32> = m.sets.get_untracked().parse().ok();
-                        let w: Option<f32> = m.weight_kg.get_untracked().parse().ok();
+                        let (reps, sets, w) = if !m.set_rows.is_empty() {
+                            // Aggregate from per-set rows
+                            let total_reps: i32 = m
+                                .set_rows
+                                .iter()
+                                .filter_map(|sr| sr.reps.get_untracked().parse::<i32>().ok())
+                                .sum();
+                            let num_sets = m.set_rows.len() as i32;
+                            // Use max weight across sets
+                            let max_weight: Option<f32> = m
+                                .set_rows
+                                .iter()
+                                .filter_map(|sr| sr.weight_kg.get_untracked().parse::<f32>().ok())
+                                .reduce(f32::max);
+                            (
+                                if total_reps > 0 {
+                                    Some(total_reps)
+                                } else {
+                                    None
+                                },
+                                Some(num_sets),
+                                max_weight,
+                            )
+                        } else {
+                            (
+                                m.reps.get_untracked().parse().ok(),
+                                m.sets.get_untracked().parse().ok(),
+                                m.weight_kg.get_untracked().parse().ok(),
+                            )
+                        };
                         let n = m.notes.get_untracked();
                         // Only include if at least one field is filled
                         if reps.is_some() || sets.is_some() || w.is_some() || !n.is_empty() {

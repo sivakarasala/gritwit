@@ -257,11 +257,18 @@ pub async fn delete_workout_log(log_id: String) -> Result<(), ServerFnError> {
     Ok(())
 }
 
-/// Load existing WOD section scores for editing.
+/// Load existing WOD section scores and movement logs for editing.
 #[server]
 pub async fn get_wod_scores_for_edit(
     log_id: String,
-) -> Result<(String, Vec<crate::db::SectionLog>), ServerFnError> {
+) -> Result<
+    (
+        String,
+        Vec<crate::db::SectionLog>,
+        Vec<crate::db::MovementLog>,
+    ),
+    ServerFnError,
+> {
     let user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
     let log_uuid: uuid::Uuid = log_id
@@ -282,11 +289,14 @@ pub async fn get_wod_scores_for_edit(
     .await
     .map_err(|_| ServerFnError::new("Workout not found"))?;
 
-    let scores = crate::db::get_section_logs_db(&pool, log_uuid)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    let (scores, movement_logs) = tokio::join!(
+        crate::db::get_section_logs_db(&pool, log_uuid),
+        crate::db::get_movement_logs_for_workout_db(&pool, log_uuid),
+    );
+    let scores = scores.map_err(|e| ServerFnError::new(e.to_string()))?;
+    let movement_logs = movement_logs.map_err(|e| ServerFnError::new(e.to_string()))?;
 
-    Ok((log.notes.unwrap_or_default(), scores))
+    Ok((log.notes.unwrap_or_default(), scores, movement_logs))
 }
 
 /// Update an existing WOD log's scores.
@@ -379,21 +389,6 @@ pub async fn update_wod_scores(
     }
 
     Ok(())
-}
-
-/// Load existing movement logs for editing a workout.
-#[server]
-pub async fn get_movement_logs_for_edit(
-    log_id: String,
-) -> Result<Vec<crate::db::MovementLog>, ServerFnError> {
-    let _user = crate::auth::session::require_auth().await?;
-    let pool = crate::db::db().await?;
-    let log_uuid: uuid::Uuid = log_id
-        .parse()
-        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    crate::db::get_movement_logs_for_workout_db(&pool, log_uuid)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
 /// Load movements for a specific section.

@@ -116,7 +116,7 @@ fn WodScoreFlow(section_id: String, wod_id: String, edit_log_id: String) -> impl
         move || edit_log_id.clone(),
         |lid| async move {
             if lid.is_empty() {
-                return Ok((String::new(), vec![]));
+                return Ok((String::new(), vec![], vec![]));
             }
             get_wod_scores_for_edit(lid).await
         },
@@ -128,7 +128,7 @@ fn WodScoreFlow(section_id: String, wod_id: String, edit_log_id: String) -> impl
         <Suspense fallback=|| view! { <p class="loading">"Loading..."</p> }>
             {move || {
                 let wod_data = resolved_wod.get().and_then(|r| r.ok()).flatten();
-                let (existing_notes, scores) = existing_scores
+                let (existing_notes, scores, movement_logs) = existing_scores
                     .get()
                     .and_then(|r| r.ok())
                     .unwrap_or_default();
@@ -141,6 +141,7 @@ fn WodScoreFlow(section_id: String, wod_id: String, edit_log_id: String) -> impl
                             sections=sections
                             focus_section=focus
                             existing_scores=scores
+                            existing_movement_logs=movement_logs
                             existing_notes=existing_notes
                             edit_log_id=edit_log_signal
                         />

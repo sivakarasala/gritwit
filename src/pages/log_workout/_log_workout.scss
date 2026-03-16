@@ -284,6 +284,39 @@
   white-space: nowrap;
 }
 
+// Per-set rows for multi-set movements (e.g. "9-8-7-6", "5x5")
+.mov-set-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mov-set-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(var(--border-rgb, 255, 255, 255), 0.06);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .mov-log-inputs {
+    flex: 1;
+  }
+}
+
+.mov-set-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
 // Gender hint
 .gender-hint {
   padding: 0.5rem 1rem;
