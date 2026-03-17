@@ -6,9 +6,7 @@ use crate::components::DeleteModal;
 use crate::db::{
     MovementLogSet, MovementLogWithName, SectionScoreWithMeta, WorkoutExercise, WorkoutLog,
 };
-use crate::pages::wod::week_calendar::{
-    compute_week_dates, parse_ymd, ymd_to_jdn, WeeklyCalendar,
-};
+use crate::pages::wod::week_calendar::{compute_week_dates, parse_ymd, ymd_to_jdn, WeeklyCalendar};
 use history_card::HistoryCard;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -33,7 +31,12 @@ fn format_day_header(date: &str) -> String {
     let jdn = ymd_to_jdn(y, m, d);
     let dow = ((jdn + 1) % 7) as usize; // 0=Sun..6=Sat
     let month = MONTH_SHORT_NAMES[(m - 1) as usize];
-    format!("{}, {} {}", DAY_FULL_NAMES[dow].to_uppercase(), month.to_uppercase(), d)
+    format!(
+        "{}, {} {}",
+        DAY_FULL_NAMES[dow].to_uppercase(),
+        month.to_uppercase(),
+        d
+    )
 }
 
 /// A workout log enriched with exercise details and optional WOD title.
@@ -248,6 +251,8 @@ async fn get_history_for_week(
 
 #[component]
 pub fn HistoryPage() -> impl IntoView {
+    let today = crate::pages::wod::week_calendar::today_iso();
+
     // Use ?date= query param if present, otherwise default to today
     let params = leptos_router::hooks::use_query_map();
     let initial_date = {
@@ -257,7 +262,7 @@ pub fn HistoryPage() -> impl IntoView {
             .unwrap_or_default()
             .to_string();
         if d.is_empty() {
-            crate::pages::wod::week_calendar::today_iso()
+            today.clone()
         } else {
             d
         }
@@ -327,11 +332,16 @@ pub fn HistoryPage() -> impl IntoView {
                                     .map(|(date, entries)| {
                                         let header = format_day_header(&date);
                                         let day_id = format!("day-{}", date);
+                                        let is_future = date > today;
                                         view! {
                                             <div class="day-section" id=day_id>
                                                 <div class="day-header">{header}</div>
                                                 {if entries.is_empty() {
-                                                    view! { <p class="rest-day">"Rest day"</p> }.into_any()
+                                                    if is_future {
+                                                        view! { <p class="upcoming-day">"Upcoming"</p> }.into_any()
+                                                    } else {
+                                                        view! { <p class="rest-day">"No workouts logged"</p> }.into_any()
+                                                    }
                                                 } else {
                                                     view! {
                                                         <div class="results-feed">

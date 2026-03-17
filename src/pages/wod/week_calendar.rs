@@ -145,6 +145,7 @@ pub fn WeeklyCalendar(
                                     <button
                                         class="week-cal-day"
                                         class:selected=move || selected_date.get() == d
+                                        class:week-cal-day--today=is_today
                                         on:click={
                                             let d2 = date.clone();
                                             move |_| selected_date.set(d2.clone())
