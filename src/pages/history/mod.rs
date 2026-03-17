@@ -1,3 +1,5 @@
+mod editable_movement_row;
+mod editable_section_row;
 mod history_card;
 
 use crate::components::DeleteModal;
@@ -65,6 +67,8 @@ pub(crate) async fn update_movement_log_set(
     set_id: String,
     reps: Option<i32>,
     weight_kg: Option<f32>,
+    distance_meters: Option<f32>,
+    calories: Option<i32>,
 ) -> Result<(), ServerFnError> {
     let user = crate::auth::session::require_auth().await?;
     let pool = crate::db::db().await?;
@@ -75,9 +79,17 @@ pub(crate) async fn update_movement_log_set(
         .id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    crate::db::update_movement_log_set_db(&pool, set_uuid, user_uuid, reps, weight_kg)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    crate::db::update_movement_log_set_db(
+        &pool,
+        set_uuid,
+        user_uuid,
+        reps,
+        weight_kg,
+        distance_meters,
+        calories,
+    )
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))?;
     Ok(())
 }
 

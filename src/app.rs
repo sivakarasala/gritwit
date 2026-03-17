@@ -150,51 +150,53 @@ fn InstallBanner() -> impl IntoView {
     let show = RwSignal::new(false);
     let is_ios = RwSignal::new(false);
 
-    #[cfg(feature = "hydrate")]
-    {
-        use wasm_bindgen::prelude::*;
-        let global = js_sys::global();
+    // Defer detection to after hydration so SSR and initial client render agree (show=false).
+    Effect::new(move |_| {
+        #[cfg(feature = "hydrate")]
+        {
+            use wasm_bindgen::prelude::*;
+            let global = js_sys::global();
 
-        // Already installed or user dismissed?
-        let standalone = js_sys::Reflect::get(&global, &JsValue::from_str("__isStandalone"))
-            .unwrap_or(JsValue::FALSE)
-            .as_bool()
-            .unwrap_or(false);
-
-        let dismissed = {
-            let ls = js_sys::Reflect::get(&global, &JsValue::from_str("localStorage"))
-                .unwrap_or(JsValue::UNDEFINED);
-            if !ls.is_undefined() {
-                let get_fn = js_sys::Reflect::get(&ls, &JsValue::from_str("getItem"))
-                    .unwrap_or(JsValue::UNDEFINED);
-                if let Ok(f) = get_fn.dyn_into::<js_sys::Function>() {
-                    f.call1(&ls, &JsValue::from_str("pwa_install_dismissed"))
-                        .unwrap_or(JsValue::NULL)
-                        == JsValue::from_str("1")
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        };
-
-        if !standalone && !dismissed {
-            let ios = js_sys::Reflect::get(&global, &JsValue::from_str("__isIos"))
+            let standalone = js_sys::Reflect::get(&global, &JsValue::from_str("__isStandalone"))
                 .unwrap_or(JsValue::FALSE)
                 .as_bool()
                 .unwrap_or(false);
-            let has_prompt =
-                !js_sys::Reflect::get(&global, &JsValue::from_str("__pwaInstallPrompt"))
-                    .unwrap_or(JsValue::NULL)
-                    .is_null();
 
-            if ios || has_prompt {
-                show.set(true);
-                is_ios.set(ios);
+            let dismissed = {
+                let ls = js_sys::Reflect::get(&global, &JsValue::from_str("localStorage"))
+                    .unwrap_or(JsValue::UNDEFINED);
+                if !ls.is_undefined() {
+                    let get_fn = js_sys::Reflect::get(&ls, &JsValue::from_str("getItem"))
+                        .unwrap_or(JsValue::UNDEFINED);
+                    if let Ok(f) = get_fn.dyn_into::<js_sys::Function>() {
+                        f.call1(&ls, &JsValue::from_str("pwa_install_dismissed"))
+                            .unwrap_or(JsValue::NULL)
+                            == JsValue::from_str("1")
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            };
+
+            if !standalone && !dismissed {
+                let ios = js_sys::Reflect::get(&global, &JsValue::from_str("__isIos"))
+                    .unwrap_or(JsValue::FALSE)
+                    .as_bool()
+                    .unwrap_or(false);
+                let has_prompt =
+                    !js_sys::Reflect::get(&global, &JsValue::from_str("__pwaInstallPrompt"))
+                        .unwrap_or(JsValue::NULL)
+                        .is_null();
+
+                if ios || has_prompt {
+                    show.set(true);
+                    is_ios.set(ios);
+                }
             }
         }
-    }
+    });
 
     let dismiss = move |_| {
         show.set(false);

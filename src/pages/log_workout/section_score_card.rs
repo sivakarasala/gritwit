@@ -8,6 +8,8 @@ pub(super) struct MovementSetState {
     pub set_number: i32,
     pub reps: RwSignal<String>,
     pub weight_kg: RwSignal<String>,
+    pub distance_meters: RwSignal<String>,
+    pub calories: RwSignal<String>,
 }
 
 /// Reactive state for a single movement's log inputs.
@@ -15,12 +17,16 @@ pub(super) struct MovementSetState {
 pub(super) struct MovementLogState {
     pub movement_id: String,
     pub exercise_name: String,
+    pub scoring_type: String,
     pub prescribed_reps: Option<String>,
     pub prescribed_weight_male: Option<f32>,
     pub prescribed_weight_female: Option<f32>,
     pub reps: RwSignal<String>,
     pub sets: RwSignal<String>,
     pub weight_kg: RwSignal<String>,
+    pub distance_meters: RwSignal<String>,
+    pub calories: RwSignal<String>,
+    pub duration_seconds: RwSignal<String>,
     pub notes: RwSignal<String>,
     /// Per-set rows. When non-empty, UI renders these instead of the flat reps/sets/weight inputs.
     pub set_rows: Vec<MovementSetState>,
@@ -30,6 +36,7 @@ pub(super) struct MovementLogState {
 pub(super) struct SectionScoreState {
     pub section_id: String,
     pub section_type: String,
+    pub phase: String,
     pub title: String,
     pub time_cap: Option<i32>,
     #[allow(dead_code)]
@@ -51,6 +58,7 @@ pub(super) struct SectionScoreState {
 #[component]
 pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoView {
     let section_type = state.section_type.clone();
+    let is_conditioning = state.phase == "conditioning";
     let show_notes = RwSignal::new(false);
 
     // Load movements for this section independently
@@ -72,13 +80,11 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
     let show_gender_hint = RwSignal::new(false);
 
     // When movements load, initialize movement states with pre-populated values.
-    // If existing_movement_logs are present (edit mode), use those instead of prescribed defaults.
     Effect::new(move || {
         if let Some(Ok(movs)) = movements.get() {
             if movement_states_signal.get_untracked().is_empty() && !movs.is_empty() {
                 let gender = user_gender.clone();
                 let existing = &existing_mov_logs;
-                // Check if any movement has differing male/female weights
                 let has_gendered_weights = gender_not_set
                     && movs.iter().any(|m| {
                         m.weight_kg_male.is_some()
@@ -100,9 +106,13 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                         let pre_weight_str = pre_weight.map(|w| w.to_string()).unwrap_or_default();
 
                         let per_set_reps = parse_rep_scheme(m.rep_scheme.as_deref());
-
-                        // Build per-set rows when there are 2+ sets
-                        let set_rows = if per_set_reps.len() >= 2 {
+                        let per_set_distances = parse_distance_scheme(m.rep_scheme.as_deref());
+                        let per_set_calories = parse_calories_scheme(m.rep_scheme.as_deref());
+                        // Per-set rows for weight_and_reps and reps_only with 2+ sets
+                        let set_rows = if (m.scoring_type == "weight_and_reps"
+                            || m.scoring_type == "reps_only")
+                            && per_set_reps.len() >= 2
+                        {
                             per_set_reps
                                 .iter()
                                 .enumerate()
@@ -116,6 +126,32 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                                     } else {
                                         pre_weight_str.clone()
                                     }),
+                                    distance_meters: RwSignal::new(String::new()),
+                                    calories: RwSignal::new(String::new()),
+                                })
+                                .collect()
+                        } else if m.scoring_type == "distance" && per_set_distances.len() >= 2 {
+                            per_set_distances
+                                .iter()
+                                .enumerate()
+                                .map(|(i, &dist)| MovementSetState {
+                                    set_number: (i + 1) as i32,
+                                    reps: RwSignal::new(String::new()),
+                                    weight_kg: RwSignal::new(String::new()),
+                                    distance_meters: RwSignal::new(dist.to_string()),
+                                    calories: RwSignal::new(String::new()),
+                                })
+                                .collect()
+                        } else if m.scoring_type == "calories" && per_set_calories.len() >= 2 {
+                            per_set_calories
+                                .iter()
+                                .enumerate()
+                                .map(|(i, &cal)| MovementSetState {
+                                    set_number: (i + 1) as i32,
+                                    reps: RwSignal::new(String::new()),
+                                    weight_kg: RwSignal::new(String::new()),
+                                    distance_meters: RwSignal::new(String::new()),
+                                    calories: RwSignal::new(cal.to_string()),
                                 })
                                 .collect()
                         } else {
@@ -123,10 +159,10 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                         };
 
                         if let Some(log) = saved {
-                            // Edit mode: use previously saved values
                             MovementLogState {
                                 movement_id: m.id.clone(),
                                 exercise_name: m.exercise_name.clone(),
+                                scoring_type: m.scoring_type.clone(),
                                 prescribed_reps: m.rep_scheme.clone(),
                                 prescribed_weight_male: m.weight_kg_male,
                                 prescribed_weight_female: m.weight_kg_female,
@@ -139,21 +175,23 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                                 weight_kg: RwSignal::new(
                                     log.weight_kg.map(|w| w.to_string()).unwrap_or_default(),
                                 ),
+                                distance_meters: RwSignal::new(String::new()),
+                                calories: RwSignal::new(String::new()),
+                                duration_seconds: RwSignal::new(String::new()),
                                 notes: RwSignal::new(log.notes.clone().unwrap_or_default()),
                                 set_rows,
                             }
                         } else {
-                            // New score: use prescribed defaults
                             let single_reps = per_set_reps.first().copied();
                             let single_sets = if per_set_reps.len() >= 2 {
                                 Some(per_set_reps.len() as i32)
                             } else {
                                 None
                             };
-
                             MovementLogState {
                                 movement_id: m.id.clone(),
                                 exercise_name: m.exercise_name.clone(),
+                                scoring_type: m.scoring_type.clone(),
                                 prescribed_reps: m.rep_scheme.clone(),
                                 prescribed_weight_male: m.weight_kg_male,
                                 prescribed_weight_female: m.weight_kg_female,
@@ -164,6 +202,9 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                                     single_sets.map(|s| s.to_string()).unwrap_or_default(),
                                 ),
                                 weight_kg: RwSignal::new(pre_weight_str),
+                                distance_meters: RwSignal::new(String::new()),
+                                calories: RwSignal::new(String::new()),
+                                duration_seconds: RwSignal::new(String::new()),
                                 notes: RwSignal::new(String::new()),
                                 set_rows,
                             }
@@ -200,7 +241,9 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
             <div class="section-score-header">
                 <div class="section-score-info">
                     <span class="section-score-title">{state.title.clone()}</span>
-                    <span class="section-score-type">{type_label}</span>
+                    {is_conditioning.then(|| view! {
+                        <span class="section-score-type">{type_label}</span>
+                    })}
                     {(!cap_info.is_empty()).then(|| view! {
                         <span class="section-score-cap">{cap_info.clone()}</span>
                     })}
@@ -232,11 +275,16 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                         Some(view! {
                             <div class="section-mov-cards">
                                 {ms.into_iter().map(|m| {
-                                    let rx_weight = format_prescribed_weight(
-                                        m.prescribed_weight_male,
-                                        m.prescribed_weight_female,
-                                    );
+                                    let rx_weight = if m.scoring_type == "weight_and_reps" {
+                                        format_prescribed_weight(
+                                            m.prescribed_weight_male,
+                                            m.prescribed_weight_female,
+                                        )
+                                    } else {
+                                        String::new()
+                                    };
                                     let has_set_rows = !m.set_rows.is_empty();
+                                    let scoring_type = m.scoring_type.clone();
                                     view! {
                                         <div class="mov-log-card">
                                             <div class="mov-log-header">
@@ -248,90 +296,259 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                                                     <span class="mov-log-rx-weight">{rx_weight.clone()}</span>
                                                 })}
                                             </div>
-                                            {if has_set_rows {
-                                                // Per-set rows for multi-set schemes (e.g. "9-8-7-6", "5x5")
-                                                view! {
-                                                    <div class="mov-set-rows">
-                                                        {m.set_rows.into_iter().map(|sr| {
-                                                            let label = format!("Set {}", sr.set_number);
-                                                            view! {
-                                                                <div class="mov-set-row">
-                                                                    <span class="mov-set-label">{label}</span>
-                                                                    <div class="mov-log-inputs">
-                                                                        <div class="mov-log-field">
-                                                                            <input
-                                                                                type="number"
-                                                                                class="mov-input"
-                                                                                placeholder="Reps"
-                                                                                inputmode="numeric"
-                                                                                min="0"
-                                                                                prop:value=move || sr.reps.get()
-                                                                                on:input=move |ev| sr.reps.set(event_target_value(&ev))
-                                                                            />
-                                                                            <span class="mov-input-label">"reps"</span>
-                                                                        </div>
-                                                                        <div class="mov-log-field">
-                                                                            <input
-                                                                                type="number"
-                                                                                class="mov-input"
-                                                                                placeholder="kg"
-                                                                                inputmode="decimal"
-                                                                                step="0.5"
-                                                                                min="0"
-                                                                                prop:value=move || sr.weight_kg.get()
-                                                                                on:input=move |ev| sr.weight_kg.set(event_target_value(&ev))
-                                                                            />
-                                                                            <span class="mov-input-label">"kg"</span>
+                                            {match scoring_type.as_str() {
+                                                "distance" => if has_set_rows {
+                                                    view! {
+                                                        <div class="mov-set-rows">
+                                                            {m.set_rows.into_iter().map(|sr| {
+                                                                let label = format!("Set {}", sr.set_number);
+                                                                view! {
+                                                                    <div class="mov-set-row">
+                                                                        <span class="mov-set-label">{label}</span>
+                                                                        <div class="mov-log-inputs">
+                                                                            <div class="mov-log-field">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    class="mov-input"
+                                                                                    placeholder="Distance"
+                                                                                    inputmode="decimal"
+                                                                                    step="1"
+                                                                                    min="0"
+                                                                                    prop:value=move || sr.distance_meters.get()
+                                                                                    on:input=move |ev| sr.distance_meters.set(event_target_value(&ev))
+                                                                                />
+                                                                                <span class="mov-input-label">"m"</span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
-                                                            }
-                                                        }).collect_view()}
-                                                    </div>
-                                                }.into_any()
-                                            } else {
-                                                // Single-set flat inputs
-                                                view! {
+                                                                }
+                                                            }).collect_view()}
+                                                        </div>
+                                                    }.into_any()
+                                                } else {
+                                                    view! {
+                                                        <div class="mov-log-inputs">
+                                                            <div class="mov-log-field">
+                                                                <input
+                                                                    type="number"
+                                                                    class="mov-input"
+                                                                    placeholder="Distance"
+                                                                    inputmode="decimal"
+                                                                    step="1"
+                                                                    min="0"
+                                                                    prop:value=move || m.distance_meters.get()
+                                                                    on:input=move |ev| m.distance_meters.set(event_target_value(&ev))
+                                                                />
+                                                                <span class="mov-input-label">"m"</span>
+                                                            </div>
+                                                        </div>
+                                                    }.into_any()
+                                                },
+                                                "calories" => if has_set_rows {
+                                                    view! {
+                                                        <div class="mov-set-rows">
+                                                            {m.set_rows.into_iter().map(|sr| {
+                                                                let label = format!("Set {}", sr.set_number);
+                                                                view! {
+                                                                    <div class="mov-set-row">
+                                                                        <span class="mov-set-label">{label}</span>
+                                                                        <div class="mov-log-inputs">
+                                                                            <div class="mov-log-field">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    class="mov-input"
+                                                                                    placeholder="Calories"
+                                                                                    inputmode="numeric"
+                                                                                    step="1"
+                                                                                    min="0"
+                                                                                    prop:value=move || sr.calories.get()
+                                                                                    on:input=move |ev| sr.calories.set(event_target_value(&ev))
+                                                                                />
+                                                                                <span class="mov-input-label">"cal"</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                            }).collect_view()}
+                                                        </div>
+                                                    }.into_any()
+                                                } else {
+                                                    view! {
+                                                        <div class="mov-log-inputs">
+                                                            <div class="mov-log-field">
+                                                                <input
+                                                                    type="number"
+                                                                    class="mov-input"
+                                                                    placeholder="Calories"
+                                                                    inputmode="numeric"
+                                                                    step="1"
+                                                                    min="0"
+                                                                    prop:value=move || m.calories.get()
+                                                                    on:input=move |ev| m.calories.set(event_target_value(&ev))
+                                                                />
+                                                                <span class="mov-input-label">"cal"</span>
+                                                            </div>
+                                                        </div>
+                                                    }.into_any()
+                                                },
+                                                "time" => view! {
                                                     <div class="mov-log-inputs">
                                                         <div class="mov-log-field">
                                                             <input
                                                                 type="number"
                                                                 class="mov-input"
-                                                                placeholder="Reps"
+                                                                placeholder="Seconds"
                                                                 inputmode="numeric"
+                                                                step="1"
                                                                 min="0"
-                                                                prop:value=move || m.reps.get()
-                                                                on:input=move |ev| m.reps.set(event_target_value(&ev))
+                                                                prop:value=move || m.duration_seconds.get()
+                                                                on:input=move |ev| m.duration_seconds.set(event_target_value(&ev))
                                                             />
-                                                            <span class="mov-input-label">"reps"</span>
-                                                        </div>
-                                                        <div class="mov-log-field">
-                                                            <input
-                                                                type="number"
-                                                                class="mov-input"
-                                                                placeholder="Sets"
-                                                                inputmode="numeric"
-                                                                min="0"
-                                                                prop:value=move || m.sets.get()
-                                                                on:input=move |ev| m.sets.set(event_target_value(&ev))
-                                                            />
-                                                            <span class="mov-input-label">"sets"</span>
-                                                        </div>
-                                                        <div class="mov-log-field">
-                                                            <input
-                                                                type="number"
-                                                                class="mov-input"
-                                                                placeholder="kg"
-                                                                inputmode="decimal"
-                                                                step="0.5"
-                                                                min="0"
-                                                                prop:value=move || m.weight_kg.get()
-                                                                on:input=move |ev| m.weight_kg.set(event_target_value(&ev))
-                                                            />
-                                                            <span class="mov-input-label">"kg"</span>
+                                                            <span class="mov-input-label">"s"</span>
                                                         </div>
                                                     </div>
-                                                }.into_any()
+                                                }.into_any(),
+                                                "reps_only" => if has_set_rows {
+                                                    view! {
+                                                        <div class="mov-set-rows">
+                                                            {m.set_rows.into_iter().map(|sr| {
+                                                                let label = format!("Set {}", sr.set_number);
+                                                                view! {
+                                                                    <div class="mov-set-row">
+                                                                        <span class="mov-set-label">{label}</span>
+                                                                        <div class="mov-log-inputs">
+                                                                            <div class="mov-log-field">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    class="mov-input"
+                                                                                    placeholder="Reps"
+                                                                                    inputmode="numeric"
+                                                                                    min="0"
+                                                                                    prop:value=move || sr.reps.get()
+                                                                                    on:input=move |ev| sr.reps.set(event_target_value(&ev))
+                                                                                />
+                                                                                <span class="mov-input-label">"reps"</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                            }).collect_view()}
+                                                        </div>
+                                                    }.into_any()
+                                                } else {
+                                                    view! {
+                                                        <div class="mov-log-inputs">
+                                                            <div class="mov-log-field">
+                                                                <input
+                                                                    type="number"
+                                                                    class="mov-input"
+                                                                    placeholder="Reps"
+                                                                    inputmode="numeric"
+                                                                    min="0"
+                                                                    prop:value=move || m.reps.get()
+                                                                    on:input=move |ev| m.reps.set(event_target_value(&ev))
+                                                                />
+                                                                <span class="mov-input-label">"reps"</span>
+                                                            </div>
+                                                            <div class="mov-log-field">
+                                                                <input
+                                                                    type="number"
+                                                                    class="mov-input"
+                                                                    placeholder="Sets"
+                                                                    inputmode="numeric"
+                                                                    min="0"
+                                                                    prop:value=move || m.sets.get()
+                                                                    on:input=move |ev| m.sets.set(event_target_value(&ev))
+                                                                />
+                                                                <span class="mov-input-label">"sets"</span>
+                                                            </div>
+                                                        </div>
+                                                    }.into_any()
+                                                },
+                                                // weight_and_reps (default)
+                                                _ => if has_set_rows {
+                                                    view! {
+                                                        <div class="mov-set-rows">
+                                                            {m.set_rows.into_iter().map(|sr| {
+                                                                let label = format!("Set {}", sr.set_number);
+                                                                view! {
+                                                                    <div class="mov-set-row">
+                                                                        <span class="mov-set-label">{label}</span>
+                                                                        <div class="mov-log-inputs">
+                                                                            <div class="mov-log-field">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    class="mov-input"
+                                                                                    placeholder="Reps"
+                                                                                    inputmode="numeric"
+                                                                                    min="0"
+                                                                                    prop:value=move || sr.reps.get()
+                                                                                    on:input=move |ev| sr.reps.set(event_target_value(&ev))
+                                                                                />
+                                                                                <span class="mov-input-label">"reps"</span>
+                                                                            </div>
+                                                                            <div class="mov-log-field">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    class="mov-input"
+                                                                                    placeholder="kg"
+                                                                                    inputmode="decimal"
+                                                                                    step="0.5"
+                                                                                    min="0"
+                                                                                    prop:value=move || sr.weight_kg.get()
+                                                                                    on:input=move |ev| sr.weight_kg.set(event_target_value(&ev))
+                                                                                />
+                                                                                <span class="mov-input-label">"kg"</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                }
+                                                            }).collect_view()}
+                                                        </div>
+                                                    }.into_any()
+                                                } else {
+                                                    view! {
+                                                        <div class="mov-log-inputs">
+                                                            <div class="mov-log-field">
+                                                                <input
+                                                                    type="number"
+                                                                    class="mov-input"
+                                                                    placeholder="Reps"
+                                                                    inputmode="numeric"
+                                                                    min="0"
+                                                                    prop:value=move || m.reps.get()
+                                                                    on:input=move |ev| m.reps.set(event_target_value(&ev))
+                                                                />
+                                                                <span class="mov-input-label">"reps"</span>
+                                                            </div>
+                                                            <div class="mov-log-field">
+                                                                <input
+                                                                    type="number"
+                                                                    class="mov-input"
+                                                                    placeholder="Sets"
+                                                                    inputmode="numeric"
+                                                                    min="0"
+                                                                    prop:value=move || m.sets.get()
+                                                                    on:input=move |ev| m.sets.set(event_target_value(&ev))
+                                                                />
+                                                                <span class="mov-input-label">"sets"</span>
+                                                            </div>
+                                                            <div class="mov-log-field">
+                                                                <input
+                                                                    type="number"
+                                                                    class="mov-input"
+                                                                    placeholder="kg"
+                                                                    inputmode="decimal"
+                                                                    step="0.5"
+                                                                    min="0"
+                                                                    prop:value=move || m.weight_kg.get()
+                                                                    on:input=move |ev| m.weight_kg.set(event_target_value(&ev))
+                                                                />
+                                                                <span class="mov-input-label">"kg"</span>
+                                                            </div>
+                                                        </div>
+                                                    }.into_any()
+                                                },
                                             }}
                                         </div>
                                     }
@@ -413,6 +630,7 @@ pub fn SectionScoreCard(state: SectionScoreState, focused: bool) -> impl IntoVie
                     }.into_any(),
                     "strength" => view! {
                         <div class="weight-input">
+                            <p class="score-helper-text">"Top weight for this session (e.g. your heavy single or working max)"</p>
                             <div class="weight-field">
                                 <input
                                     type="number"
@@ -464,28 +682,18 @@ fn format_prescribed_weight(male: Option<f32>, female: Option<f32>) -> String {
 }
 
 /// Parse a rep scheme string into per-set rep counts.
-/// Returns a Vec where each element is the reps for that set.
-///
-/// Examples:
-///   "5x5"     → [5, 5, 5, 5, 5]
-///   "3x10"    → [10, 10, 10]
-///   "21-15-9" → [21, 15, 9]
-///   "9-8-7-6" → [9, 8, 7, 6]
-///   "10"      → [10]
 fn parse_rep_scheme(scheme: Option<&str>) -> Vec<i32> {
     let Some(s) = scheme else {
         return Vec::new();
     };
     let s = s.trim();
 
-    // Pattern: "5x5", "3x10", "5X3" — sets x reps
     if let Some((left, right)) = s.split_once('x').or_else(|| s.split_once('X')) {
         if let (Ok(sets), Ok(reps)) = (left.trim().parse::<i32>(), right.trim().parse::<i32>()) {
             return vec![reps; sets as usize];
         }
     }
 
-    // Pattern: "21-15-9", "9-8-7-6" — per-set reps
     if s.contains('-') {
         let parts: Vec<i32> = s.split('-').filter_map(|p| p.trim().parse().ok()).collect();
         if parts.len() >= 2 {
@@ -493,9 +701,67 @@ fn parse_rep_scheme(scheme: Option<&str>) -> Vec<i32> {
         }
     }
 
-    // Pattern: single number like "10"
     if let Ok(n) = s.parse::<i32>() {
         return vec![n];
+    }
+
+    Vec::new()
+}
+
+/// Parse a calories scheme like "12-10-8" or "4x12cal" into per-set calorie targets.
+fn parse_calories_scheme(scheme: Option<&str>) -> Vec<i32> {
+    let Some(s) = scheme else {
+        return Vec::new();
+    };
+    let s = s.trim();
+
+    let parse_cal = |p: &str| -> Option<i32> {
+        let stripped = p.trim().trim_end_matches(|c: char| c.is_alphabetic());
+        stripped.trim().parse::<i32>().ok()
+    };
+
+    if let Some((left, right)) = s.split_once('x').or_else(|| s.split_once('X')) {
+        if let (Ok(sets), Some(cal)) = (left.trim().parse::<i32>(), parse_cal(right)) {
+            return vec![cal; sets as usize];
+        }
+    }
+
+    if s.contains('-') {
+        let parts: Vec<i32> = s.split('-').filter_map(parse_cal).collect();
+        if parts.len() >= 2 {
+            return parts;
+        }
+    }
+
+    Vec::new()
+}
+
+/// Parse a distance scheme like "500m-500m-400m" or "4x500m" into per-set distances.
+fn parse_distance_scheme(scheme: Option<&str>) -> Vec<f32> {
+    let Some(s) = scheme else {
+        return Vec::new();
+    };
+    let s = s.trim();
+
+    // Strip trailing unit (m, km, etc.) helper
+    let parse_dist = |p: &str| -> Option<f32> {
+        let stripped = p.trim().trim_end_matches(|c: char| c.is_alphabetic());
+        stripped.trim().parse::<f32>().ok()
+    };
+
+    // "4x500m" format
+    if let Some((left, right)) = s.split_once('x').or_else(|| s.split_once('X')) {
+        if let (Ok(sets), Some(dist)) = (left.trim().parse::<i32>(), parse_dist(right)) {
+            return vec![dist; sets as usize];
+        }
+    }
+
+    // "500m-400m-300m" format
+    if s.contains('-') {
+        let parts: Vec<f32> = s.split('-').filter_map(parse_dist).collect();
+        if parts.len() >= 2 {
+            return parts;
+        }
     }
 
     Vec::new()

@@ -8,6 +8,7 @@ use super::set_row::SetRow;
 pub(super) fn ExerciseEntryCard(
     entry_key: usize,
     exercise_name: String,
+    scoring_type: String,
     sets: Vec<SetData>,
     exercises: RwSignal<Vec<ExerciseEntry>>,
 ) -> impl IntoView {
@@ -16,6 +17,8 @@ pub(super) fn ExerciseEntryCard(
             list.retain(|e| e.key != entry_key);
         });
     };
+
+    let st = StoredValue::new(scoring_type);
 
     let add_set = move |_| {
         exercises.update(|list| {
@@ -41,6 +44,7 @@ pub(super) fn ExerciseEntryCard(
                             <SetRow
                                 entry_key=entry_key
                                 set=set
+                                scoring_type=st.get_value()
                                 exercises=exercises
                             />
                         }

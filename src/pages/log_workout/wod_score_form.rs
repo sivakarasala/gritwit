@@ -27,7 +27,16 @@ pub fn WodScoreForm(wod: Wod, sections: Vec<WodSection>, focus_section: String) 
         .map(|s| SectionScoreState {
             section_id: s.id.clone(),
             section_type: s.section_type.clone(),
-            title: s.title.clone().unwrap_or_else(|| s.section_type.clone()),
+            phase: s.phase.clone(),
+            title: s.title.clone().unwrap_or_else(|| match s.phase.as_str() {
+                "warmup" => "Warm-Up".to_string(),
+                "strength" => "Strength".to_string(),
+                "conditioning" => "Conditioning".to_string(),
+                "cooldown" => "Cool Down".to_string(),
+                "optional" => "Optional".to_string(),
+                "personal" => "Personal".to_string(),
+                _ => s.section_type.clone(),
+            }),
             time_cap: s.time_cap_minutes,
             rounds: s.rounds,
             is_rx: RwSignal::new(true),
@@ -112,6 +121,12 @@ pub fn WodScoreForm(wod: Wod, sections: Vec<WodSection>, focus_section: String) 
                                     set_number: (i + 1) as i32,
                                     reps: sr.reps.get_untracked().parse().ok(),
                                     weight_kg: sr.weight_kg.get_untracked().parse().ok(),
+                                    distance_meters: sr
+                                        .distance_meters
+                                        .get_untracked()
+                                        .parse()
+                                        .ok(),
+                                    calories: sr.calories.get_untracked().parse().ok(),
                                 })
                                 .collect();
                             (
@@ -125,16 +140,81 @@ pub fn WodScoreForm(wod: Wod, sections: Vec<WodSection>, focus_section: String) 
                                 details,
                             )
                         } else {
-                            (
-                                m.reps.get_untracked().parse().ok(),
-                                m.sets.get_untracked().parse().ok(),
-                                m.weight_kg.get_untracked().parse().ok(),
-                                vec![],
-                            )
+                            match m.scoring_type.as_str() {
+                                "distance" => {
+                                    let dist: Option<f32> =
+                                        m.distance_meters.get_untracked().parse().ok();
+                                    let details = dist
+                                        .map(|d| {
+                                            vec![MovementLogSetInput {
+                                                set_number: 1,
+                                                reps: None,
+                                                weight_kg: None,
+                                                distance_meters: Some(d),
+                                                calories: None,
+                                            }]
+                                        })
+                                        .unwrap_or_default();
+                                    (
+                                        None,
+                                        if dist.is_some() { Some(1) } else { None },
+                                        None,
+                                        details,
+                                    )
+                                }
+                                "calories" => {
+                                    let cal: Option<i32> = m.calories.get_untracked().parse().ok();
+                                    let details = cal
+                                        .map(|c| {
+                                            vec![MovementLogSetInput {
+                                                set_number: 1,
+                                                reps: None,
+                                                weight_kg: None,
+                                                distance_meters: None,
+                                                calories: Some(c),
+                                            }]
+                                        })
+                                        .unwrap_or_default();
+                                    (
+                                        None,
+                                        if cal.is_some() { Some(1) } else { None },
+                                        None,
+                                        details,
+                                    )
+                                }
+                                "time" => {
+                                    let dur: Option<i32> =
+                                        m.duration_seconds.get_untracked().parse().ok();
+                                    (
+                                        dur,
+                                        if dur.is_some() { Some(1) } else { None },
+                                        None,
+                                        vec![],
+                                    )
+                                }
+                                _ => (
+                                    m.reps.get_untracked().parse().ok(),
+                                    m.sets.get_untracked().parse().ok(),
+                                    m.weight_kg.get_untracked().parse().ok(),
+                                    vec![],
+                                ),
+                            }
                         };
                         let n = m.notes.get_untracked();
+                        let has_set_data = !set_details.is_empty()
+                            && set_details.iter().any(|sd| {
+                                sd.reps.is_some()
+                                    || sd.weight_kg.is_some()
+                                    || sd.distance_meters.is_some()
+                                    || sd.calories.is_some()
+                            });
                         // Only include if at least one field is filled
-                        if reps.is_some() || sets.is_some() || w.is_some() || !n.is_empty() {
+                        if reps.is_some()
+                            || sets.is_some()
+                            || w.is_some()
+                            || !n.is_empty()
+                            || has_set_data
+                        {
                             Some(MovementLogInput {
                                 movement_id: m.movement_id.clone(),
                                 reps,

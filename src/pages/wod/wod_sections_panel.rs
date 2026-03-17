@@ -61,7 +61,7 @@ fn section_type_options() -> Vec<SelectOption> {
 }
 
 #[component]
-pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
+pub fn WodSectionsPanel(wod_id: String, can_edit: bool) -> impl IntoView {
     let add_section_action = ServerAction::<CreateWodSection>::new();
     let delete_section_action = ServerAction::<DeleteWodSection>::new();
     let update_section_action = ServerAction::<UpdateWodSection>::new();
@@ -116,7 +116,7 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
                                     view! {
                                         <WodSectionCard
                                             section=sec
-                                            is_coach=is_coach
+                                            can_edit=can_edit
                                             delete_action=delete_section_action
                                             update_action=update_section_action
                                             existing_log_id=log_id
@@ -129,7 +129,7 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
                 })}
             </Suspense>
 
-            {is_coach.then(move || {
+            {can_edit.then(move || {
                 let wid_s = wid_submit.clone();
                 view! {
                     <div class="wod-add-section">
@@ -146,11 +146,17 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
                                     class="wod-section-form"
                                     on:submit=move |ev| {
                                         ev.prevent_default();
+                                        let phase = phase_input.get_untracked();
+                                        let section_type = if phase == "conditioning" {
+                                            type_input.get_untracked()
+                                        } else {
+                                            "static".to_string()
+                                        };
                                         add_section_action.dispatch(CreateWodSection {
                                             wod_id: wid.clone(),
-                                            phase: phase_input.get_untracked(),
+                                            phase,
                                             title: title_input.get_untracked(),
-                                            section_type: type_input.get_untracked(),
+                                            section_type,
                                             time_cap_minutes: cap_input.get_untracked(),
                                             rounds: rounds_input.get_untracked(),
                                             notes: notes_input.get_untracked(),
@@ -164,14 +170,10 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
                                 >
                                     <div class="form-row">
                                         <SingleSelect options=phase_options() selected=phase_input placeholder="Phase" />
-                                        <SingleSelect options=section_type_options() selected=type_input placeholder="Type" />
+                                        {move || (phase_input.get() == "conditioning").then(|| view! {
+                                            <SingleSelect options=section_type_options() selected=type_input placeholder="Type" />
+                                        })}
                                     </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Title (optional)"
-                                        prop:value=move || title_input.get()
-                                        on:input=move |ev| title_input.set(event_target_value(&ev))
-                                    />
                                     <div class="form-row">
                                         <input
                                             type="number"
@@ -179,12 +181,14 @@ pub fn WodSectionsPanel(wod_id: String, is_coach: bool) -> impl IntoView {
                                             prop:value=move || cap_input.get()
                                             on:input=move |ev| cap_input.set(event_target_value(&ev))
                                         />
-                                        <input
-                                            type="number"
-                                            placeholder="Rounds"
-                                            prop:value=move || rounds_input.get()
-                                            on:input=move |ev| rounds_input.set(event_target_value(&ev))
-                                        />
+                                        {move || (type_input.get() == "fortime").then(|| view! {
+                                            <input
+                                                type="number"
+                                                placeholder="Rounds"
+                                                prop:value=move || rounds_input.get()
+                                                on:input=move |ev| rounds_input.set(event_target_value(&ev))
+                                            />
+                                        })}
                                     </div>
                                     <input
                                         type="text"

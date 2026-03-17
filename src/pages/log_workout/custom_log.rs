@@ -10,6 +10,7 @@ pub(super) struct ExerciseEntry {
     pub key: usize,
     pub exercise_id: String,
     pub exercise_name: String,
+    pub scoring_type: String,
     pub sets: Vec<SetData>,
 }
 
@@ -19,6 +20,8 @@ pub(super) struct SetData {
     pub reps: String,
     pub weight_kg: String,
     pub duration: String,
+    pub distance_meters: String,
+    pub calories: String,
     pub notes: String,
     pub show_weight: bool,
     pub show_notes: bool,
@@ -31,6 +34,8 @@ impl SetData {
             reps: String::new(),
             weight_kg: String::new(),
             duration: String::new(),
+            distance_meters: String::new(),
+            calories: String::new(),
             notes: String::new(),
             show_weight: false,
             show_notes: false,
@@ -73,36 +78,32 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
             let mut entries: Vec<ExerciseEntry> = Vec::new();
             let mut key_counter = 0usize;
             for ex in &exs {
+                let set = SetData {
+                    set_number: ex.set_number,
+                    reps: ex.reps.map(|v| v.to_string()).unwrap_or_default(),
+                    weight_kg: ex.weight_kg.map(|v| v.to_string()).unwrap_or_default(),
+                    duration: ex
+                        .duration_seconds
+                        .map(|v| v.to_string())
+                        .unwrap_or_default(),
+                    distance_meters: ex
+                        .distance_meters
+                        .map(|v| v.to_string())
+                        .unwrap_or_default(),
+                    calories: ex.calories.map(|v| v.to_string()).unwrap_or_default(),
+                    notes: ex.notes.clone().unwrap_or_default(),
+                    show_weight: ex.weight_kg.is_some(),
+                    show_notes: ex.notes.is_some(),
+                };
                 if let Some(entry) = entries.iter_mut().find(|e| e.exercise_id == ex.exercise_id) {
-                    entry.sets.push(SetData {
-                        set_number: ex.set_number,
-                        reps: ex.reps.map(|v| v.to_string()).unwrap_or_default(),
-                        weight_kg: ex.weight_kg.map(|v| v.to_string()).unwrap_or_default(),
-                        duration: ex
-                            .duration_seconds
-                            .map(|v| v.to_string())
-                            .unwrap_or_default(),
-                        notes: ex.notes.clone().unwrap_or_default(),
-                        show_weight: ex.weight_kg.is_some(),
-                        show_notes: ex.notes.is_some(),
-                    });
+                    entry.sets.push(set);
                 } else {
                     entries.push(ExerciseEntry {
                         key: key_counter,
                         exercise_id: ex.exercise_id.clone(),
                         exercise_name: ex.exercise_name.clone(),
-                        sets: vec![SetData {
-                            set_number: ex.set_number,
-                            reps: ex.reps.map(|v| v.to_string()).unwrap_or_default(),
-                            weight_kg: ex.weight_kg.map(|v| v.to_string()).unwrap_or_default(),
-                            duration: ex
-                                .duration_seconds
-                                .map(|v| v.to_string())
-                                .unwrap_or_default(),
-                            notes: ex.notes.clone().unwrap_or_default(),
-                            show_weight: ex.weight_kg.is_some(),
-                            show_notes: ex.notes.is_some(),
-                        }],
+                        scoring_type: ex.scoring_type.clone(),
+                        sets: vec![set],
                     });
                     key_counter += 1;
                 }
@@ -141,6 +142,8 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
                     reps: set.reps.parse().ok(),
                     weight_kg: set.weight_kg.parse().ok(),
                     duration_seconds: set.duration.parse().ok(),
+                    distance_meters: set.distance_meters.parse().ok(),
+                    calories: set.calories.parse().ok(),
                     notes: if set.notes.is_empty() {
                         None
                     } else {
@@ -160,10 +163,13 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
 
         // Every exercise must have at least one set with reps
         for entry in &entries {
-            let has_data = entry
-                .sets
-                .iter()
-                .any(|s| !s.reps.is_empty() || !s.weight_kg.is_empty() || !s.duration.is_empty());
+            let has_data = entry.sets.iter().any(|s| {
+                !s.reps.is_empty()
+                    || !s.weight_kg.is_empty()
+                    || !s.duration.is_empty()
+                    || !s.distance_meters.is_empty()
+                    || !s.calories.is_empty()
+            });
             if !has_data {
                 let msg = format!("Fill in at least one set for {}", entry.exercise_name);
                 submit_result.set(None);
@@ -264,6 +270,7 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
                                                 <ExerciseEntryCard
                                                     entry_key=key
                                                     exercise_name=entry.exercise_name.clone()
+                                                    scoring_type=entry.scoring_type.clone()
                                                     sets=entry.sets.clone()
                                                     exercises=exercises
                                                 />
@@ -310,6 +317,7 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
                                                     let ex_name = ex.name.clone();
                                                     let display_name = ex.name.clone();
                                                     let ex_cat = ex.category.clone();
+                                                    let ex_scoring = ex.scoring_type.clone();
                                                     view! {
                                                         <button
                                                             class="exercise-picker-item"
@@ -321,6 +329,7 @@ pub fn CustomLogFlow(edit_id: String) -> impl IntoView {
                                                                         key: k,
                                                                         exercise_id: ex_id.clone(),
                                                                         exercise_name: ex_name.clone(),
+                                                                        scoring_type: ex_scoring.clone(),
                                                                         sets: vec![SetData::new(1)],
                                                                     });
                                                                 });

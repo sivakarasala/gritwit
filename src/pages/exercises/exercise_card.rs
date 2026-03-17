@@ -3,7 +3,8 @@ use crate::db::Exercise;
 use leptos::prelude::*;
 
 use super::{
-    category_badge, category_class, category_select_options, to_embed_url, UpdateExercise,
+    category_badge, category_class, category_select_options, scoring_type_options, to_embed_url,
+    UpdateExercise,
 };
 
 #[component]
@@ -39,6 +40,7 @@ pub fn ExerciseCard(
     let edit_movement_type = RwSignal::new(String::new());
     let edit_description = RwSignal::new(String::new());
     let edit_video_url = RwSignal::new(String::new());
+    let edit_scoring_type = RwSignal::new(String::new());
 
     // Init values for pre-populating
     let init_name = exercise.name.clone();
@@ -46,6 +48,7 @@ pub fn ExerciseCard(
     let init_mt = exercise.movement_type.clone().unwrap_or_default();
     let init_desc = exercise.description.clone().unwrap_or_default();
     let init_video = exercise.demo_video_url.clone().unwrap_or_default();
+    let init_scoring_type = exercise.scoring_type.clone();
 
     view! {
         <div
@@ -82,6 +85,7 @@ pub fn ExerciseCard(
                 let init_mt_c2 = init_mt.clone();
                 let init_desc_c2 = init_desc.clone();
                 let init_video_c2 = init_video.clone();
+                let init_scoring_type_c2 = init_scoring_type.clone();
                 let id_c2 = id.clone();
                 let exercise_name_c = exercise.name.clone();
                 let exercise_mt_c = exercise.movement_type.clone();
@@ -100,6 +104,7 @@ pub fn ExerciseCard(
                 let imt = init_mt_c2.clone();
                 let idesc = init_desc_c2.clone();
                 let ivideo = init_video_c2.clone();
+                let iscoring = init_scoring_type_c2.clone();
                 let id_del = id_c2.clone();
                 let ex_name = exercise_name_c.clone();
                 let ex_mt = exercise_mt_c.clone();
@@ -123,6 +128,7 @@ pub fn ExerciseCard(
                                     movement_type: edit_movement_type.get_untracked(),
                                     description: edit_description.get_untracked(),
                                     demo_video_url: edit_video_url.get_untracked(),
+                                    scoring_type: edit_scoring_type.get_untracked(),
                                 });
                                 editing_exercise.set(None);
                             }
@@ -146,6 +152,11 @@ pub fn ExerciseCard(
                                     on:input=move |ev| edit_movement_type.set(event_target_value(&ev))
                                 />
                             </div>
+                            <SingleSelect
+                                options=scoring_type_options()
+                                selected=edit_scoring_type
+                                placeholder="Scoring type"
+                            />
                             <input
                                 type="text"
                                 placeholder="Description (optional)"
@@ -226,6 +237,7 @@ pub fn ExerciseCard(
                                     let imt = imt.clone();
                                     let idesc = idesc.clone();
                                     let ivideo = ivideo.clone();
+                                    let iscoring = iscoring.clone();
                                     let eid_edit_btn = eid_edit_btn.clone();
                                     let id_del = id_del.clone();
                                     view! {
@@ -237,6 +249,7 @@ pub fn ExerciseCard(
                                                 edit_movement_type.set(imt.clone());
                                                 edit_description.set(idesc.clone());
                                                 edit_video_url.set(ivideo.clone());
+                                                edit_scoring_type.set(iscoring.clone());
                                                 editing_exercise.set(Some(eid_edit_btn.clone()));
                                             }
                                         >"✎"</button>

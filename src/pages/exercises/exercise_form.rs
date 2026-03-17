@@ -1,7 +1,7 @@
 use crate::components::{SingleSelect, VideoUpload};
 use leptos::prelude::*;
 
-use super::{category_select_options, CreateExercise};
+use super::{category_select_options, default_scoring_type, scoring_type_options, CreateExercise};
 
 #[component]
 pub fn ExerciseForm(
@@ -18,6 +18,13 @@ pub fn ExerciseForm(
     let video_preview = RwSignal::new(String::new());
     let video_mode = RwSignal::new("url".to_string());
     let url_input = RwSignal::new(String::new());
+    let scoring_type_input = RwSignal::new(default_scoring_type("conditioning").to_string());
+
+    // Auto-suggest scoring type when category changes
+    Effect::new(move |_| {
+        let cat = category_input.get();
+        scoring_type_input.set(default_scoring_type(&cat).to_string());
+    });
 
     let on_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
@@ -46,6 +53,7 @@ pub fn ExerciseForm(
                 movement_type: movement_type_input.get_untracked(),
                 description: description_input.get_untracked(),
                 demo_video_url: pasted_url,
+                scoring_type: scoring_type_input.get_untracked(),
             });
             reset_form();
             return;
@@ -63,6 +71,7 @@ pub fn ExerciseForm(
                     movement_type: movement_type_input.get_untracked(),
                     description: description_input.get_untracked(),
                     demo_video_url: String::new(),
+                    scoring_type: scoring_type_input.get_untracked(),
                 });
                 reset_form();
                 return;
@@ -75,6 +84,7 @@ pub fn ExerciseForm(
                     movement_type: movement_type_input.get_untracked(),
                     description: description_input.get_untracked(),
                     demo_video_url: video_url.get_untracked(),
+                    scoring_type: scoring_type_input.get_untracked(),
                 });
                 reset_form();
                 return;
@@ -85,6 +95,7 @@ pub fn ExerciseForm(
             let cat = category_input.get_untracked();
             let mt = movement_type_input.get_untracked();
             let desc = description_input.get_untracked();
+            let st = scoring_type_input.get_untracked();
             wasm_bindgen_futures::spawn_local(async move {
                 match crate::voice::upload_video_file("exercise-video-input").await {
                     Ok(url_js) => {
@@ -96,6 +107,7 @@ pub fn ExerciseForm(
                             movement_type: mt,
                             description: desc,
                             demo_video_url: url,
+                            scoring_type: st,
                         });
                         reset_form();
                     }
@@ -124,6 +136,7 @@ pub fn ExerciseForm(
                 movement_type: movement_type_input.get_untracked(),
                 description: description_input.get_untracked(),
                 demo_video_url: url_input.get_untracked(),
+                scoring_type: scoring_type_input.get_untracked(),
             });
             reset_form();
         }
@@ -150,6 +163,11 @@ pub fn ExerciseForm(
                     on:input=move |ev| movement_type_input.set(event_target_value(&ev))
                 />
             </div>
+            <SingleSelect
+                options=scoring_type_options()
+                selected=scoring_type_input
+                placeholder="Scoring type"
+            />
             <input
                 type="text"
                 placeholder="Description (optional)"

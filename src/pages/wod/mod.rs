@@ -22,9 +22,16 @@ use wod_form::WodForm;
 
 #[component]
 pub fn WodPage() -> impl IntoView {
-    let is_coach = use_context::<AuthUser>()
+    let auth_user = use_context::<AuthUser>();
+    let is_coach = auth_user
+        .as_ref()
         .map(|u| matches!(u.role, UserRole::Coach | UserRole::Admin))
         .unwrap_or(false);
+    let is_admin = auth_user
+        .as_ref()
+        .map(|u| matches!(u.role, UserRole::Admin))
+        .unwrap_or(false);
+    let current_user_id: Option<String> = auth_user.map(|u| u.id.clone());
 
     let create_action = ServerAction::<CreateWod>::new();
     let delete_action = ServerAction::<DeleteWod>::new();
@@ -106,10 +113,11 @@ pub fn WodPage() -> impl IntoView {
                 Ok(list) => view! {
                     <div class="wod-list">
                         {list.into_iter().map(|wod| {
+                            let can_edit = is_coach && (is_admin || wod.created_by.as_deref() == current_user_id.as_deref());
                             view! {
                                 <WodCard
                                     wod=wod
-                                    is_coach=is_coach
+                                    can_edit=can_edit
                                     editing_wod=editing_wod
                                     update_action=update_action
                                     pending_delete_wod_id=pending_delete_wod_id

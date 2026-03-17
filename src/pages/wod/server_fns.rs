@@ -68,8 +68,23 @@ pub async fn update_wod(
     time_cap_minutes: String,
     programmed_date: String,
 ) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    // Only the creator (or admin) may edit
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> =
+            sqlx::query_as("SELECT created_by::text FROM wods WHERE id = $1::uuid")
+                .bind(&id)
+                .fetch_optional(&pool)
+                .await
+                .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to edit this WOD".to_string(),
+            ));
+        }
+    }
     let uuid: uuid::Uuid = id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
@@ -98,8 +113,23 @@ pub async fn update_wod(
 
 #[server]
 pub async fn delete_wod(id: String) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    // Only the creator (or admin) may delete
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> =
+            sqlx::query_as("SELECT created_by::text FROM wods WHERE id = $1::uuid")
+                .bind(&id)
+                .fetch_optional(&pool)
+                .await
+                .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to delete this WOD".to_string(),
+            ));
+        }
+    }
     let uuid: uuid::Uuid = id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
@@ -109,11 +139,15 @@ pub async fn delete_wod(id: String) -> Result<(), ServerFnError> {
 }
 
 #[server]
-pub async fn list_exercises_for_wod() -> Result<Vec<(String, String)>, ServerFnError> {
+pub async fn list_exercises_for_wod() -> Result<Vec<(String, String, String)>, ServerFnError> {
     let pool = crate::db::db().await?;
     crate::db::list_exercises_db(&pool)
         .await
-        .map(|exs| exs.into_iter().map(|e| (e.id, e.name)).collect())
+        .map(|exs| {
+            exs.into_iter()
+                .map(|e| (e.id, e.name, e.scoring_type))
+                .collect()
+        })
         .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
@@ -140,8 +174,22 @@ pub async fn create_wod_section(
     rounds: String,
     notes: String,
 ) -> Result<String, ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> =
+            sqlx::query_as("SELECT created_by::text FROM wods WHERE id = $1::uuid")
+                .bind(&wod_id)
+                .fetch_optional(&pool)
+                .await
+                .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to edit this WOD".to_string(),
+            ));
+        }
+    }
     let wod_uuid: uuid::Uuid = wod_id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
@@ -191,8 +239,23 @@ pub async fn update_wod_section(
     rounds: String,
     notes: String,
 ) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT w.created_by::text FROM wod_sections s JOIN wods w ON w.id = s.wod_id WHERE s.id = $1::uuid"
+        )
+        .bind(&id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to edit this WOD".to_string(),
+            ));
+        }
+    }
     let uuid: uuid::Uuid = id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
@@ -232,8 +295,23 @@ pub async fn update_wod_section(
 
 #[server]
 pub async fn delete_wod_section(id: String) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT w.created_by::text FROM wod_sections s JOIN wods w ON w.id = s.wod_id WHERE s.id = $1::uuid"
+        )
+        .bind(&id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to edit this WOD".to_string(),
+            ));
+        }
+    }
     let uuid: uuid::Uuid = id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
@@ -294,8 +372,23 @@ pub async fn add_section_movement(
     weight_kg_female: String,
     notes: String,
 ) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT w.created_by::text FROM wod_sections s JOIN wods w ON w.id = s.wod_id WHERE s.id = $1::uuid"
+        )
+        .bind(&section_id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to edit this WOD".to_string(),
+            ));
+        }
+    }
     let sec_uuid: uuid::Uuid = section_id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
@@ -338,8 +431,23 @@ pub async fn update_section_movement(
     weight_kg_female: String,
     notes: String,
 ) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT w.created_by::text FROM wod_movements m JOIN wod_sections s ON s.id = m.section_id JOIN wods w ON w.id = s.wod_id WHERE m.id = $1::uuid"
+        )
+        .bind(&id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to edit this WOD".to_string(),
+            ));
+        }
+    }
     let uuid: uuid::Uuid = id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
@@ -375,8 +483,23 @@ pub async fn update_section_movement(
 
 #[server]
 pub async fn delete_section_movement(id: String) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
+    if !matches!(user.role, UserRole::Admin) {
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT w.created_by::text FROM wod_movements m JOIN wod_sections s ON s.id = m.section_id JOIN wods w ON w.id = s.wod_id WHERE m.id = $1::uuid"
+        )
+        .bind(&id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+        let owner = row.and_then(|(v,)| v);
+        if owner.as_deref() != Some(user.id.as_str()) {
+            return Err(ServerFnError::new(
+                "Not authorized to edit this WOD".to_string(),
+            ));
+        }
+    }
     let uuid: uuid::Uuid = id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;

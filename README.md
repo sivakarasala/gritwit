@@ -53,8 +53,10 @@ src/
       set_row.rs      # Set input row (reps, weight, duration, notes)
       server_fns.rs   # Server functions: save WOD scores and custom logs
     history/
-      mod.rs          # HistoryPage, server fns: fetch/delete entries, reactive feed
-      history_card.rs # Result card with edit (→ /log?edit) and delete (modal confirm) buttons
+      mod.rs                   # HistoryPage, server fns: fetch/delete/update entries, reactive feed
+      history_card.rs          # HistoryCard: layout, custom workout exercise display, delete button
+      editable_section_row.rs  # Inline section-score editor (tap to edit time/rounds/weight/Rx)
+      editable_movement_row.rs # Inline per-set movement editor (per-set or flat reps/weight)
     login/
       mod.rs          # Phone OTP + Email/Password tabs, Google OAuth button, toast errors
     profile/
@@ -134,12 +136,39 @@ Logging mirrors this structure:
 workout_logs              (one per athlete per day, linked to a wod)
  └── section_logs         (one per section: finish time, rounds, rx/scaled, score_value, weight_kg)
       └── movement_logs   (per-movement results: actual reps, sets, weight within a section)
+           └── movement_log_sets  (per-set rows: set_number, reps, weight_kg, distance_meters, calories)
 
 workout_logs              (custom / non-WOD)
  └── workout_exercises     (linked directly via workout_log_id)
 ```
 
 **Workout types** (both WOD and section level): `fortime`, `amrap`, `emom`, `tabata`, `strength`, `custom`
+
+**Exercise scoring types**: `weight_and_reps`, `reps_only`, `distance`, `calories`, `time`
+
+### Rep Scheme Parsing
+
+When a coach programs a movement's rep scheme (`wod_movements.rep_scheme`), the log form parses it to pre-populate per-set input rows. The scheme format depends on the exercise's scoring type:
+
+| Scoring type | Example scheme | Parsed as |
+|---|---|---|
+| `weight_and_reps` / `reps_only` | `21-15-9` | 3 sets: 21, 15, 9 reps |
+| `weight_and_reps` / `reps_only` | `5x5` | 5 sets of 5 reps |
+| `weight_and_reps` / `reps_only` | `10` | single set, 10 reps (no per-set rows) |
+| `distance` | `500m-500m-400m` | 3 sets: 500m, 500m, 400m |
+| `distance` | `4x500m` | 4 sets of 500m |
+| `calories` | `12-10-8` | 3 sets: 12, 10, 8 cal targets |
+| `calories` | `4x12cal` | 4 sets of 12 cal |
+
+Rules:
+- Per-set rows appear only when the scheme produces **2 or more sets**. Single-value schemes fall back to flat inputs.
+- Distance values strip any trailing alphabetic unit (`m`, `km`) before parsing.
+- Calorie values strip any trailing alphabetic unit (`cal`) before parsing.
+- Rep scheme strings not matching any pattern produce no pre-population (empty flat inputs).
+
+### WOD Ownership
+
+Only the coach who created a WOD can edit or delete it (and its sections/movements). Admins can edit any WOD. The `wods.created_by` column stores the creator's user ID; all mutation server functions enforce this check server-side.
 
 ### Database Migrations
 
@@ -163,6 +192,8 @@ workout_logs              (custom / non-WOD)
 | 15 | `create_movement_logs_table` | Per-movement results within a section log (reps, sets, weight) |
 | 16 | `add_phone_auth` | `phone` column on users; `otp_codes` table for SMS login |
 | 17 | `add_gender_to_users` | `gender` column on users (male/female/null) for weight prescriptions |
+| 18 | `create_movement_log_sets_table` | Per-set detail rows for movement logs (set_number, reps, weight_kg) |
+| 19 | `add_distance_calories_to_movement_log_sets` | `distance_meters` and `calories` columns on movement_log_sets |
 
 ### Roles
 
@@ -373,7 +404,10 @@ GitHub Actions (`.github/workflows/`):
 - [x] Weekly calendar computes dates client-side (no server round-trip on date change)
 - [x] User profile page: edit name/email/phone/gender, set/update password with confirmation
 - [x] Per-movement logging within WOD sections (actual reps, sets, weight per movement)
+- [x] Per-set logging: multi-set rep schemes (`21-15-9`, `5x5`), distance intervals (`500m-500m`), calorie intervals (`12-10-8cal`) produce individual input rows
 - [x] Gender-aware weight prescriptions (male/female weights on WOD movements)
+- [x] WOD ownership guard: only the creator can edit/delete a WOD (admins bypass)
+- [x] Inline history editing: WOD section scores and per-set movement results editable in-place on the history page (no redirect)
 
 ### Pending
 

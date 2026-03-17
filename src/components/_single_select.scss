@@ -49,24 +49,23 @@
 .single-select__backdrop {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 200;
 }
 
 // Dropdown panel
 .single-select__dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 220px;
+  position: fixed;
   width: max-content;
   max-width: min(320px, 90vw);
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  z-index: 91;
+  z-index: 201;
   overflow: hidden;
   animation: ss-fade-in 0.15s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes ss-fade-in {
@@ -91,7 +90,8 @@
 }
 
 .single-select__options {
-  max-height: 240px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

@@ -18,6 +18,7 @@ pub async fn create_exercise(
     movement_type: String,
     description: String,
     demo_video_url: String,
+    scoring_type: String,
 ) -> Result<(), ServerFnError> {
     let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
@@ -49,6 +50,7 @@ pub async fn create_exercise(
         desc,
         video,
         Some(user_uuid),
+        &scoring_type,
     )
     .await
     .map_err(|e| ServerFnError::new(e.to_string()))
@@ -62,6 +64,7 @@ pub async fn update_exercise(
     movement_type: String,
     description: String,
     demo_video_url: String,
+    scoring_type: String,
 ) -> Result<(), ServerFnError> {
     crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
@@ -83,9 +86,18 @@ pub async fn update_exercise(
     } else {
         Some(demo_video_url.as_str())
     };
-    crate::db::update_exercise_db(&pool, uuid, &name, &category, mt, desc, video)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+    crate::db::update_exercise_db(
+        &pool,
+        uuid,
+        &name,
+        &category,
+        mt,
+        desc,
+        video,
+        &scoring_type,
+    )
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
 #[server]

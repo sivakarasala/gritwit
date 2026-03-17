@@ -7,7 +7,7 @@ use super::{wod_type_class, wod_type_label, UpdateWod};
 #[component]
 pub fn WodCard(
     wod: Wod,
-    is_coach: bool,
+    can_edit: bool,
     editing_wod: RwSignal<Option<String>>,
     update_action: ServerAction<UpdateWod>,
     pending_delete_wod_id: RwSignal<String>,
@@ -147,7 +147,7 @@ pub fn WodCard(
                                 <span class="wod-date">{date_c}</span>
                             </div>
                             <div class="wod-card-actions" on:click=move |ev| ev.stop_propagation()>
-                                {is_coach.then(move || view! {
+                                {can_edit.then(move || view! {
                                     <button
                                         class="wod-edit-btn"
                                         on:click=move |_| {
@@ -179,7 +179,7 @@ pub fn WodCard(
                         {move || expanded.get().then(|| view! {
                             <WodSectionsPanel
                                 wod_id=wid_panel.get_value()
-                                is_coach=is_coach
+                                can_edit=can_edit
                             />
                         })}
                     }.into_any()

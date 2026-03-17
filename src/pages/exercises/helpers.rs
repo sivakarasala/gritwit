@@ -86,3 +86,40 @@ pub fn category_select_options() -> Vec<SelectOption> {
         })
         .collect()
 }
+
+/// Returns the default scoring type for a given category.
+pub fn default_scoring_type(category: &str) -> &'static str {
+    match category {
+        "gymnastics" | "calisthenics" | "plyometrics" | "warmup" => "reps_only",
+        "cardio" | "conditioning" => "distance",
+        "yoga" | "mobility" | "meditation" | "breathing" | "chanting" | "cooldown" | "sports" => {
+            "time"
+        }
+        _ => "weight_and_reps",
+    }
+}
+
+pub fn scoring_type_options() -> Vec<SelectOption> {
+    vec![
+        SelectOption {
+            value: "weight_and_reps".into(),
+            label: "Weight & Reps".into(),
+        },
+        SelectOption {
+            value: "reps_only".into(),
+            label: "Reps Only".into(),
+        },
+        SelectOption {
+            value: "distance".into(),
+            label: "Distance".into(),
+        },
+        SelectOption {
+            value: "calories".into(),
+            label: "Calories".into(),
+        },
+        SelectOption {
+            value: "time".into(),
+            label: "Time".into(),
+        },
+    ]
+}

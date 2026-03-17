@@ -30,6 +30,7 @@ pub struct Exercise {
     pub muscle_groups: Vec<String>,
     pub description: Option<String>,
     pub demo_video_url: Option<String>,
+    pub scoring_type: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -154,7 +155,7 @@ pub async fn list_exercises_db(pool: &sqlx::PgPool) -> Result<Vec<Exercise>, sql
         r#"SELECT
             id::text, name, category,
             movement_type, muscle_groups, description,
-            demo_video_url
+            demo_video_url, scoring_type
         FROM exercises
         ORDER BY name"#,
     )
@@ -173,10 +174,11 @@ pub async fn create_exercise_db(
     description: Option<&str>,
     demo_video_url: Option<&str>,
     created_by: Option<uuid::Uuid>,
+    scoring_type: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
-        r#"INSERT INTO exercises (name, category, movement_type, muscle_groups, description, demo_video_url, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        r#"INSERT INTO exercises (name, category, movement_type, muscle_groups, description, demo_video_url, created_by, scoring_type)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
     )
     .bind(name)
     .bind(category)
@@ -185,6 +187,7 @@ pub async fn create_exercise_db(
     .bind(description)
     .bind(demo_video_url)
     .bind(created_by)
+    .bind(scoring_type)
     .execute(pool)
     .await?;
     Ok(())
@@ -209,11 +212,12 @@ pub async fn update_exercise_db(
     movement_type: Option<&str>,
     description: Option<&str>,
     demo_video_url: Option<&str>,
+    scoring_type: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"UPDATE exercises
            SET name = $2, category = $3, movement_type = $4,
-               description = $5, demo_video_url = $6
+               description = $5, demo_video_url = $6, scoring_type = $7
            WHERE id = $1"#,
     )
     .bind(id)
@@ -222,6 +226,7 @@ pub async fn update_exercise_db(
     .bind(movement_type)
     .bind(description)
     .bind(demo_video_url)
+    .bind(scoring_type)
     .execute(pool)
     .await?;
     Ok(())
@@ -383,6 +388,7 @@ pub struct MovementLogWithName {
     pub id: String,
     pub section_log_id: String,
     pub exercise_name: String,
+    pub scoring_type: String,
     pub reps: Option<i32>,
     pub sets: Option<i32>,
     pub weight_kg: Option<f32>,
@@ -439,6 +445,8 @@ pub struct MovementLogSet {
     pub reps: Option<i32>,
     pub weight_kg: Option<f32>,
     pub notes: Option<String>,
+    pub distance_meters: Option<f32>,
+    pub calories: Option<i32>,
 }
 
 /// Input for inserting a single set row.
@@ -447,6 +455,8 @@ pub struct MovementLogSetInput {
     pub set_number: i32,
     pub reps: Option<i32>,
     pub weight_kg: Option<f32>,
+    pub distance_meters: Option<f32>,
+    pub calories: Option<i32>,
 }
 
 /// Leaderboard entry for a specific section.
@@ -540,6 +550,7 @@ pub struct Wod {
     pub workout_type: String,
     pub time_cap_minutes: Option<i32>,
     pub programmed_date: String,
+    pub created_by: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -568,6 +579,7 @@ pub struct WodMovement {
     pub weight_kg_female: Option<f32>,
     pub notes: Option<String>,
     pub sort_order: i32,
+    pub scoring_type: String,
 }
 
 // ---- WOD Queries ----
@@ -576,7 +588,7 @@ pub struct WodMovement {
 pub async fn list_wods_db(pool: &sqlx::PgPool) -> Result<Vec<Wod>, sqlx::Error> {
     sqlx::query_as::<_, Wod>(
         r#"SELECT id::text, title, description, workout_type,
-                  time_cap_minutes, programmed_date::text
+                  time_cap_minutes, programmed_date::text, created_by::text
            FROM wods
            ORDER BY programmed_date DESC, created_at DESC"#,
     )
@@ -591,7 +603,7 @@ pub async fn list_wods_for_date_db(
 ) -> Result<Vec<Wod>, sqlx::Error> {
     sqlx::query_as::<_, Wod>(
         r#"SELECT id::text, title, description, workout_type,
-                  time_cap_minutes, programmed_date::text
+                  time_cap_minutes, programmed_date::text, created_by::text
            FROM wods
            WHERE programmed_date = $1::date
            ORDER BY created_at ASC"#,
@@ -658,7 +670,8 @@ pub async fn get_wod_movements_db(
 ) -> Result<Vec<WodMovement>, sqlx::Error> {
     sqlx::query_as::<_, WodMovement>(
         r#"SELECT wm.id::text, wm.section_id::text, wm.exercise_id::text, e.name as exercise_name,
-                  wm.rep_scheme, wm.weight_kg_male, wm.weight_kg_female, wm.notes, wm.sort_order
+                  wm.rep_scheme, wm.weight_kg_male, wm.weight_kg_female, wm.notes, wm.sort_order,
+                  e.scoring_type
            FROM wod_movements wm
            JOIN exercises e ON e.id = wm.exercise_id
            WHERE wm.section_id = $1
@@ -677,7 +690,8 @@ pub async fn get_all_wod_movements_db(
 ) -> Result<Vec<WodMovement>, sqlx::Error> {
     sqlx::query_as::<_, WodMovement>(
         r#"SELECT wm.id::text, wm.section_id::text, wm.exercise_id::text, e.name as exercise_name,
-                  wm.rep_scheme, wm.weight_kg_male, wm.weight_kg_female, wm.notes, wm.sort_order
+                  wm.rep_scheme, wm.weight_kg_male, wm.weight_kg_female, wm.notes, wm.sort_order,
+                  e.scoring_type
            FROM wod_movements wm
            JOIN exercises e ON e.id = wm.exercise_id
            JOIN wod_sections ws ON ws.id = wm.section_id
@@ -986,13 +1000,15 @@ pub async fn submit_wod_score_db(
             // Insert per-set detail rows
             for sd in &ml.set_details {
                 sqlx::query(
-                    r#"INSERT INTO movement_log_sets (movement_log_id, set_number, reps, weight_kg)
-                       VALUES ($1, $2, $3, $4)"#,
+                    r#"INSERT INTO movement_log_sets (movement_log_id, set_number, reps, weight_kg, distance_meters, calories)
+                       VALUES ($1, $2, $3, $4, $5, $6)"#,
                 )
                 .bind(ml_id)
                 .bind(sd.set_number)
                 .bind(sd.reps)
                 .bind(sd.weight_kg)
+                .bind(sd.distance_meters)
+                .bind(sd.calories)
                 .execute(&mut *tx)
                 .await?;
             }
@@ -1088,7 +1104,7 @@ pub async fn get_movement_logs_with_names_db(
 ) -> Result<Vec<MovementLogWithName>, sqlx::Error> {
     sqlx::query_as::<_, MovementLogWithName>(
         r#"SELECT ml.id::text, ml.section_log_id::text, e.name as exercise_name,
-                  ml.reps, ml.sets, ml.weight_kg, ml.notes
+                  e.scoring_type, ml.reps, ml.sets, ml.weight_kg, ml.notes
            FROM movement_logs ml
            JOIN wod_movements wm ON wm.id = ml.movement_id
            JOIN exercises e ON e.id = wm.exercise_id
@@ -1138,7 +1154,8 @@ pub async fn get_movement_log_sets_db(
 ) -> Result<Vec<MovementLogSet>, sqlx::Error> {
     sqlx::query_as::<_, MovementLogSet>(
         r#"SELECT mls.id::text, mls.movement_log_id::text, mls.set_number,
-                  mls.reps, mls.weight_kg, mls.notes
+                  mls.reps, mls.weight_kg, mls.notes,
+                  mls.distance_meters, mls.calories
            FROM movement_log_sets mls
            JOIN movement_logs ml ON ml.id = mls.movement_log_id
            JOIN section_logs sl ON sl.id = ml.section_log_id
@@ -1190,18 +1207,22 @@ pub async fn update_movement_log_set_db(
     user_id: uuid::Uuid,
     reps: Option<i32>,
     weight_kg: Option<f32>,
+    distance_meters: Option<f32>,
+    calories: Option<i32>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"UPDATE movement_log_sets mls
-           SET reps = $2, weight_kg = $3
+           SET reps = $2, weight_kg = $3, distance_meters = $4, calories = $5
            FROM movement_logs ml
            JOIN section_logs sl ON sl.id = ml.section_log_id
            JOIN workout_logs wl ON wl.id = sl.workout_log_id
-           WHERE mls.id = $1 AND mls.movement_log_id = ml.id AND wl.user_id = $4"#,
+           WHERE mls.id = $1 AND mls.movement_log_id = ml.id AND wl.user_id = $6"#,
     )
     .bind(set_id)
     .bind(reps)
     .bind(weight_kg)
+    .bind(distance_meters)
+    .bind(calories)
     .bind(user_id)
     .execute(pool)
     .await?;
@@ -1375,6 +1396,9 @@ pub struct WorkoutExercise {
     pub weight_kg: Option<f32>,
     pub duration_seconds: Option<i32>,
     pub notes: Option<String>,
+    pub distance_meters: Option<f32>,
+    pub calories: Option<i32>,
+    pub scoring_type: String,
 }
 
 /// Input for a single exercise set in a custom workout.
@@ -1386,6 +1410,8 @@ pub struct ExerciseSetInput {
     pub weight_kg: Option<f32>,
     pub duration_seconds: Option<i32>,
     pub notes: Option<String>,
+    pub distance_meters: Option<f32>,
+    pub calories: Option<i32>,
 }
 
 /// Submit a custom workout with exercises in one transaction.
@@ -1422,8 +1448,8 @@ pub async fn submit_custom_workout_db(
 
         sqlx::query(
             r#"INSERT INTO workout_exercises
-               (workout_log_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+               (workout_log_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, distance_meters, calories)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
         )
         .bind(log_id)
         .bind(exercise_id)
@@ -1432,6 +1458,8 @@ pub async fn submit_custom_workout_db(
         .bind(input.weight_kg)
         .bind(input.duration_seconds)
         .bind(&input.notes)
+        .bind(input.distance_meters)
+        .bind(input.calories)
         .execute(&mut *tx)
         .await?;
     }
@@ -1448,7 +1476,8 @@ pub async fn list_workout_exercises_db(
 ) -> Result<Vec<WorkoutExercise>, sqlx::Error> {
     sqlx::query_as::<_, WorkoutExercise>(
         r#"SELECT we.id::text, we.exercise_id::text, e.name as exercise_name,
-                  we.set_number, we.reps, we.weight_kg, we.duration_seconds, we.notes
+                  we.set_number, we.reps, we.weight_kg, we.duration_seconds, we.notes,
+                  we.distance_meters, we.calories, e.scoring_type
            FROM workout_exercises we
            JOIN exercises e ON e.id = we.exercise_id
            WHERE we.workout_log_id = $1
@@ -1508,8 +1537,8 @@ pub async fn update_custom_workout_db(
 
         sqlx::query(
             r#"INSERT INTO workout_exercises
-               (workout_log_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+               (workout_log_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, distance_meters, calories)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
         )
         .bind(log_id)
         .bind(exercise_id)
@@ -1518,6 +1547,8 @@ pub async fn update_custom_workout_db(
         .bind(input.weight_kg)
         .bind(input.duration_seconds)
         .bind(&input.notes)
+        .bind(input.distance_meters)
+        .bind(input.calories)
         .execute(&mut *tx)
         .await?;
     }
