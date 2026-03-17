@@ -57,7 +57,7 @@ pub(crate) fn today_iso() -> String {
 }
 
 /// Compute (today_iso, [sun..sat] iso strings) for the week containing `anchor`.
-fn compute_week_dates(anchor: &str) -> (String, Vec<String>) {
+pub(crate) fn compute_week_dates(anchor: &str) -> (String, Vec<String>) {
     let today = today_iso();
     let (y, m, d) = if anchor.is_empty() {
         parse_ymd(&today)
@@ -77,7 +77,7 @@ fn compute_week_dates(anchor: &str) -> (String, Vec<String>) {
     (today, week)
 }
 
-fn parse_ymd(date: &str) -> (i64, i64, i64) {
+pub(crate) fn parse_ymd(date: &str) -> (i64, i64, i64) {
     let parts: Vec<&str> = date.split('-').collect();
     let y = parts.first().and_then(|s| s.parse().ok()).unwrap_or(2026);
     let m = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
@@ -86,8 +86,11 @@ fn parse_ymd(date: &str) -> (i64, i64, i64) {
 }
 
 #[component]
-pub fn WeeklyCalendar(selected_date: RwSignal<String>) -> impl IntoView {
-    let anchor = RwSignal::new(String::new());
+pub fn WeeklyCalendar(
+    selected_date: RwSignal<String>,
+    #[prop(optional)] anchor: Option<RwSignal<String>>,
+) -> impl IntoView {
+    let anchor = anchor.unwrap_or_else(|| RwSignal::new(String::new()));
 
     // Compute week dates locally — no server call needed
     let week = Memo::new(move |_| compute_week_dates(&anchor.get()));
@@ -213,14 +216,14 @@ fn shift_date(date: &str, days: i64) -> String {
     format!("{:04}-{:02}-{:02}", ny, nm, nd)
 }
 
-fn ymd_to_jdn(y: i64, m: i64, d: i64) -> i64 {
+pub(crate) fn ymd_to_jdn(y: i64, m: i64, d: i64) -> i64 {
     (1461 * (y + 4800 + (m - 14) / 12)) / 4 + (367 * (m - 2 - 12 * ((m - 14) / 12))) / 12
         - (3 * ((y + 4900 + (m - 14) / 12) / 100)) / 4
         + d
         - 32075
 }
 
-fn jdn_to_ymd(jdn: i64) -> (i64, i64, i64) {
+pub(crate) fn jdn_to_ymd(jdn: i64) -> (i64, i64, i64) {
     let l = jdn + 68569;
     let n = (4 * l) / 146097;
     let l = l - (146097 * n + 3) / 4;

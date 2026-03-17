@@ -539,6 +539,26 @@ pub async fn list_workouts_by_date_db(
     .await
 }
 
+#[cfg(feature = "ssr")]
+pub async fn list_workouts_by_date_range_db(
+    pool: &sqlx::PgPool,
+    user_id: uuid::Uuid,
+    start: chrono::NaiveDate,
+    end: chrono::NaiveDate,
+) -> Result<Vec<WorkoutLog>, sqlx::Error> {
+    sqlx::query_as::<_, WorkoutLog>(
+        r#"SELECT id::text, workout_date::text, notes, is_rx, wod_id::text
+        FROM workout_logs
+        WHERE user_id = $1 AND workout_date >= $2 AND workout_date <= $3
+        ORDER BY workout_date ASC, created_at DESC"#,
+    )
+    .bind(user_id)
+    .bind(start)
+    .bind(end)
+    .fetch_all(pool)
+    .await
+}
+
 // ---- WOD Models ----
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
