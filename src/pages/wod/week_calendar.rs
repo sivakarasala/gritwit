@@ -1,5 +1,21 @@
 use leptos::prelude::*;
 
+/// Extract clientX from a touch event's touch list (e.g. "touches" or "changedTouches").
+fn touch_client_x(_ev: &leptos::ev::TouchEvent, _list_name: &str) -> Option<f64> {
+    #[cfg(feature = "hydrate")]
+    {
+        js_sys::Reflect::get(_ev, &_list_name.into())
+            .ok()
+            .and_then(|t| js_sys::Reflect::get(&t, &0.into()).ok())
+            .and_then(|t| js_sys::Reflect::get(&t, &"clientX".into()).ok())
+            .and_then(|v| v.as_f64())
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        None
+    }
+}
+
 const DAY_LABELS: [&str; 7] = ["S", "M", "T", "W", "T", "F", "S"];
 
 const MONTH_NAMES: [&str; 12] = [
@@ -76,8 +92,34 @@ pub fn WeeklyCalendar(selected_date: RwSignal<String>) -> impl IntoView {
     // Compute week dates locally — no server call needed
     let week = Memo::new(move |_| compute_week_dates(&anchor.get()));
 
+    // Track touch start X for swipe gesture
+    let touch_start_x = RwSignal::new(0.0_f64);
+
     view! {
-        <div class="week-calendar">
+        <div class="week-calendar"
+            on:touchstart=move |ev: leptos::ev::TouchEvent| {
+                if let Some(x) = touch_client_x(&ev, "touches") {
+                    touch_start_x.set(x);
+                }
+            }
+            on:touchend=move |ev: leptos::ev::TouchEvent| {
+                if let Some(end_x) = touch_client_x(&ev, "changedTouches") {
+                    let dx = end_x - touch_start_x.get();
+                    let threshold = 50.0;
+                    if dx > threshold {
+                        // Swiped right → previous week
+                        let (_, dates) = week.get();
+                        let first = dates.first().cloned().unwrap_or_default();
+                        anchor.set(shift_date(&first, -7));
+                    } else if dx < -threshold {
+                        // Swiped left → next week
+                        let (_, dates) = week.get();
+                        let last = dates.last().cloned().unwrap_or_default();
+                        anchor.set(shift_date(&last, 1));
+                    }
+                }
+            }
+        >
             {move || {
                 let (today, dates) = week.get();
                 let first = dates.first().cloned().unwrap_or_default();

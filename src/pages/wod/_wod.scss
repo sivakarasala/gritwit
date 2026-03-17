@@ -50,6 +50,14 @@
   flex: 1;
   display: flex;
   justify-content: space-between;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; // hide scrollbar on Firefox
+  -ms-overflow-style: none; // hide scrollbar on IE/Edge
+
+  &::-webkit-scrollbar {
+    display: none; // hide scrollbar on Chrome/Safari
+  }
 }
 
 .week-cal-day {
@@ -62,7 +70,9 @@
   cursor: pointer;
   padding: 0.3rem 0.25rem;
   min-width: 36px;
+  flex-shrink: 0;
   color: var(--text-dim);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .week-cal-label {
