@@ -50,6 +50,14 @@
   flex: 1;
   display: flex;
   justify-content: space-between;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; // hide scrollbar on Firefox
+  -ms-overflow-style: none; // hide scrollbar on IE/Edge
+
+  &::-webkit-scrollbar {
+    display: none; // hide scrollbar on Chrome/Safari
+  }
 }
 
 .week-cal-day {
@@ -62,7 +70,9 @@
   cursor: pointer;
   padding: 0.3rem 0.25rem;
   min-width: 36px;
+  flex-shrink: 0;
   color: var(--text-dim);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .week-cal-label {
@@ -89,6 +99,7 @@
 
   &.today {
     color: var(--accent);
+    font-weight: 700;
   }
 
   .week-cal-day.selected & {
@@ -98,6 +109,28 @@
 
   .week-cal-day:hover:not(.selected) & {
     background: var(--bg-card);
+  }
+}
+
+.week-cal-day--today {
+  .week-cal-label {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  &::after {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-top: 0.15rem;
+    opacity: 0.8;
+  }
+
+  &.selected::after {
+    background: rgba(var(--accent-rgb), 0.4);
   }
 }
 
