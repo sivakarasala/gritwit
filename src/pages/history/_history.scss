@@ -55,6 +55,8 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--accent);
+  border-radius: 8px;
+  margin: 0.6rem 0;
 }
 
 .rest-day,
@@ -333,6 +335,7 @@
   font-size: 0.65rem;
   color: var(--text-faint);
   opacity: 0.6;
+  margin-left: 0.3rem;
 }
 
 // Editable movement rows

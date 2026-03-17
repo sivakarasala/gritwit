@@ -959,6 +959,17 @@ pub async fn submit_wod_score_db(
     .fetch_one(&mut *tx)
     .await?;
 
+    insert_sections_tx(&mut tx, log_id, sections).await?;
+    tx.commit().await?;
+    Ok(log_id)
+}
+
+#[cfg(feature = "ssr")]
+async fn insert_sections_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    log_id: uuid::Uuid,
+    sections: &[(SectionScoreInput, String)],
+) -> Result<(), sqlx::Error> {
     for (input, section_type) in sections {
         let section_id: uuid::Uuid = input
             .section_id
@@ -994,10 +1005,9 @@ pub async fn submit_wod_score_db(
         .bind(input.is_rx)
         .bind(input.skipped)
         .bind(score_value)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
 
-        // Insert per-movement logs
         for ml in &input.movement_logs {
             let mov_id: uuid::Uuid = ml
                 .movement_id
@@ -1014,10 +1024,9 @@ pub async fn submit_wod_score_db(
             .bind(ml.sets)
             .bind(ml.weight_kg)
             .bind(&ml.notes)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut **tx)
             .await?;
 
-            // Insert per-set detail rows
             for sd in &ml.set_details {
                 sqlx::query(
                     r#"INSERT INTO movement_log_sets (movement_log_id, set_number, reps, weight_kg, distance_meters, calories)
@@ -1029,14 +1038,25 @@ pub async fn submit_wod_score_db(
                 .bind(sd.weight_kg)
                 .bind(sd.distance_meters)
                 .bind(sd.calories)
-                .execute(&mut *tx)
+                .execute(&mut **tx)
                 .await?;
             }
         }
     }
+    Ok(())
+}
 
+/// Add section scores to an existing workout log (used when logging individual sections).
+#[cfg(feature = "ssr")]
+pub async fn add_section_scores_db(
+    pool: &sqlx::PgPool,
+    log_id: uuid::Uuid,
+    sections: &[(SectionScoreInput, String)],
+) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    insert_sections_tx(&mut tx, log_id, sections).await?;
     tx.commit().await?;
-    Ok(log_id)
+    Ok(())
 }
 
 /// Get section logs for a workout log.
@@ -1391,7 +1411,7 @@ pub async fn get_wod_with_sections_db(
 ) -> Result<(Wod, Vec<WodSection>), sqlx::Error> {
     let wod = sqlx::query_as::<_, Wod>(
         r#"SELECT id::text, title, description, workout_type,
-                  time_cap_minutes, programmed_date::text
+                  time_cap_minutes, programmed_date::text, created_by::text
            FROM wods WHERE id = $1"#,
     )
     .bind(wod_id)

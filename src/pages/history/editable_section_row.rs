@@ -70,7 +70,7 @@ pub(super) fn EditableSectionRow(s: SectionScoreWithMeta) -> impl IntoView {
             save_result.set(None);
 
             let finish_time = match st.as_str() {
-                "fortime" => {
+                "fortime" | "static" => {
                     let m: i32 = minutes.get_untracked().parse().unwrap_or(0);
                     let s: i32 = seconds.get_untracked().parse().unwrap_or(0);
                     let total = m * 60 + s;
@@ -180,7 +180,7 @@ pub(super) fn EditableSectionRow(s: SectionScoreWithMeta) -> impl IntoView {
             </div>
             {move || editing.get().then(|| {
                 let fields = match st.as_str() {
-                    "fortime" => view! {
+                    "fortime" | "static" => view! {
                         <div class="section-edit-fields">
                             <div class="movement-edit-field">
                                 <label>"Min"</label>
@@ -285,6 +285,7 @@ fn format_section_type(t: &str) -> String {
         "amrap" => "AMRAP".to_string(),
         "emom" => "EMOM".to_string(),
         "strength" => "Strength".to_string(),
+        "static" => "Static".to_string(),
         other => other.to_string(),
     }
 }
@@ -297,11 +298,11 @@ fn format_score_from_parts(
     weight_kg: Option<f32>,
 ) -> String {
     match section_type {
-        "fortime" => {
+        "fortime" | "static" => {
             if let Some(t) = finish_time {
                 format!("{}:{:02}", t / 60, t % 60)
             } else {
-                "—".to_string()
+                "No score".to_string()
             }
         }
         "amrap" | "emom" => {
@@ -317,10 +318,10 @@ fn format_score_from_parts(
             if let Some(w) = weight_kg {
                 format!("{}kg", w)
             } else {
-                "—".to_string()
+                "No score".to_string()
             }
         }
-        _ => "—".to_string(),
+        _ => "No score".to_string(),
     }
 }
 

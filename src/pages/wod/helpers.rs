@@ -16,6 +16,7 @@ pub fn section_type_label(t: &str) -> &'static str {
         "amrap" => "AMRAP",
         "emom" => "EMOM",
         "strength" => "Strength",
+        "static" => "Static",
         _ => "",
     }
 }

@@ -89,38 +89,42 @@ pub async fn submit_wod_scores(
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
 
-    if let Some(_existing_id) =
+    let sections: Vec<(SectionScoreInput, String)> = serde_json::from_str(&scores_json)
+        .map_err(|e| ServerFnError::new(format!("Invalid scores data: {}", e)))?;
+
+    let log_id = if let Some(existing_id) =
         crate::db::has_wod_score_db(&pool, user_uuid, wod_uuid, &workout_date)
             .await
             .map_err(|e| ServerFnError::new(e.to_string()))?
     {
-        return Err(ServerFnError::new(format!(
-            "You've already logged this WOD on {}",
-            workout_date
-        )));
-    }
-
-    let sections: Vec<(SectionScoreInput, String)> = serde_json::from_str(&scores_json)
-        .map_err(|e| ServerFnError::new(format!("Invalid scores data: {}", e)))?;
-
-    let notes_opt = if notes.is_empty() {
-        None
+        // Log already exists — add this section's scores to it
+        let existing_uuid: uuid::Uuid = existing_id
+            .parse()
+            .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+        crate::db::add_section_scores_db(&pool, existing_uuid, &sections)
+            .await
+            .map_err(|e| ServerFnError::new(e.to_string()))?;
+        existing_id
     } else {
-        Some(notes.as_str())
+        let notes_opt = if notes.is_empty() {
+            None
+        } else {
+            Some(notes.as_str())
+        };
+        crate::db::submit_wod_score_db(
+            &pool,
+            user_uuid,
+            wod_uuid,
+            &workout_date,
+            notes_opt,
+            &sections,
+        )
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?
+        .to_string()
     };
 
-    let log_id = crate::db::submit_wod_score_db(
-        &pool,
-        user_uuid,
-        wod_uuid,
-        &workout_date,
-        notes_opt,
-        &sections,
-    )
-    .await
-    .map_err(|e| ServerFnError::new(e.to_string()))?;
-
-    Ok(log_id.to_string())
+    Ok(log_id)
 }
 
 /// Submit a custom (non-WOD) workout log with exercises.

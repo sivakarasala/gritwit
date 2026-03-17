@@ -1,6 +1,6 @@
 -- Add scoring_type to exercises table
 ALTER TABLE exercises
-    ADD COLUMN scoring_type TEXT NOT NULL DEFAULT 'weight_and_reps';
+    ADD COLUMN IF NOT EXISTS scoring_type TEXT NOT NULL DEFAULT 'weight_and_reps';
 
 -- Apply defaults based on category
 UPDATE exercises SET scoring_type = 'reps_only'
@@ -16,11 +16,11 @@ UPDATE exercises SET scoring_type = 'time'
 
 -- Add distance and calorie tracking to custom workout sets
 ALTER TABLE workout_exercises
-    ADD COLUMN distance_meters REAL,
-    ADD COLUMN calories        INTEGER;
+    ADD COLUMN IF NOT EXISTS distance_meters REAL,
+    ADD COLUMN IF NOT EXISTS calories        INTEGER;
 
 -- Add distance and calorie tracking to WOD per-set logs
 -- (movement_logs is intentionally excluded — movement_log_sets is the single source of truth)
 ALTER TABLE movement_log_sets
-    ADD COLUMN distance_meters REAL,
-    ADD COLUMN calories        INTEGER;
+    ADD COLUMN IF NOT EXISTS distance_meters REAL,
+    ADD COLUMN IF NOT EXISTS calories        INTEGER;
