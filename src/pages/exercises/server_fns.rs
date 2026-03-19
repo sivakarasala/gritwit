@@ -102,12 +102,23 @@ pub async fn update_exercise(
 
 #[server]
 pub async fn delete_exercise(id: String) -> Result<(), ServerFnError> {
-    crate::auth::session::require_role(UserRole::Coach).await?;
+    let user = crate::auth::session::require_role(UserRole::Coach).await?;
     let pool = crate::db::db().await?;
     let uuid: uuid::Uuid = id
         .parse()
         .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
-    crate::db::delete_exercise_db(&pool, uuid)
+    let user_uuid: uuid::Uuid = user
+        .id
+        .parse()
+        .map_err(|e: uuid::Error| ServerFnError::new(e.to_string()))?;
+    let is_admin = matches!(user.role, UserRole::Admin);
+    crate::db::delete_exercise_db(&pool, uuid, user_uuid, is_admin)
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+        .map_err(|e| {
+            if matches!(e, sqlx::Error::RowNotFound) {
+                ServerFnError::new("You can only delete movements you created.")
+            } else {
+                ServerFnError::new(e.to_string())
+            }
+        })
 }

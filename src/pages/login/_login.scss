@@ -131,6 +131,12 @@
 
   &:hover:not(:disabled) { opacity: 0.85; }
   &:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  &--success {
+    background: #22c55e;
+    color: #fff;
+    opacity: 1 !important;
+  }
 }
 
 @keyframes spin {
@@ -239,6 +245,14 @@
   flex: 1;
   min-width: 0;
   letter-spacing: 0.05rem;
+}
+
+.otp-voice-note {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin: 0.35rem 0 0;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .otp-hint {

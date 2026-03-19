@@ -61,22 +61,6 @@ pub const CATEGORIES: &[(&str, &str, &str, &str)] = &[
     ("cooldown", "Cool Down", "CLD", "badge--cooldown"),
 ];
 
-pub fn category_badge(cat: &str) -> &'static str {
-    CATEGORIES
-        .iter()
-        .find(|(v, _, _, _)| *v == cat)
-        .map(|(_, _, b, _)| *b)
-        .unwrap_or("GEN")
-}
-
-pub fn category_class(cat: &str) -> &'static str {
-    CATEGORIES
-        .iter()
-        .find(|(v, _, _, _)| *v == cat)
-        .map(|(_, _, _, c)| *c)
-        .unwrap_or("")
-}
-
 pub fn category_select_options() -> Vec<SelectOption> {
     CATEGORIES
         .iter()
@@ -96,6 +80,29 @@ pub fn default_scoring_type(category: &str) -> &'static str {
             "time"
         }
         _ => "weight_and_reps",
+    }
+}
+
+pub fn category_color(cat: &str) -> &'static str {
+    match cat {
+        "conditioning" => "#e74c3c",
+        "gymnastics" => "#9b59b6",
+        "weightlifting" => "#3498db",
+        "powerlifting" => "#2980b9",
+        "cardio" => "#e67e22",
+        "bodybuilding" => "#c0392b",
+        "strongman" => "#7f8c8d",
+        "plyometrics" => "#d35400",
+        "calisthenics" => "#16a085",
+        "mobility" => "#1abc9c",
+        "yoga" => "#8e44ad",
+        "meditation" => "#2ecc71",
+        "breathing" => "#7fb3d3",
+        "chanting" => "#f39c12",
+        "sports" => "#f1c40f",
+        "warmup" => "#ffa500",
+        "cooldown" => "#6495ed",
+        _ => "#888",
     }
 }
 

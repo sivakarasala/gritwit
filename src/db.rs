@@ -31,6 +31,7 @@ pub struct Exercise {
     pub description: Option<String>,
     pub demo_video_url: Option<String>,
     pub scoring_type: String,
+    pub created_by: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -155,8 +156,9 @@ pub async fn list_exercises_db(pool: &sqlx::PgPool) -> Result<Vec<Exercise>, sql
         r#"SELECT
             id::text, name, category,
             movement_type, muscle_groups, description,
-            demo_video_url, scoring_type
+            demo_video_url, scoring_type, created_by::text
         FROM exercises
+        WHERE deleted_at IS NULL
         ORDER BY name"#,
     )
     .fetch_all(pool)
@@ -194,11 +196,29 @@ pub async fn create_exercise_db(
 }
 
 #[cfg(feature = "ssr")]
-pub async fn delete_exercise_db(pool: &sqlx::PgPool, id: uuid::Uuid) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM exercises WHERE id = $1")
+pub async fn delete_exercise_db(
+    pool: &sqlx::PgPool,
+    id: uuid::Uuid,
+    requesting_user_id: uuid::Uuid,
+    is_admin: bool,
+) -> Result<(), sqlx::Error> {
+    if is_admin {
+        sqlx::query("UPDATE exercises SET deleted_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+    } else {
+        let result = sqlx::query(
+            "UPDATE exercises SET deleted_at = NOW() WHERE id = $1 AND created_by = $2 AND deleted_at IS NULL"
+        )
         .bind(id)
+        .bind(requesting_user_id)
         .execute(pool)
         .await?;
+        if result.rows_affected() == 0 {
+            return Err(sqlx::Error::RowNotFound);
+        }
+    }
     Ok(())
 }
 

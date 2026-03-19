@@ -37,6 +37,10 @@ pub fn LoginPage() -> impl IntoView {
     let send_otp_pending = send_otp.pending();
     let verify_otp_pending = verify_otp.pending();
 
+    let login_success = RwSignal::new(false);
+    let register_success = RwSignal::new(false);
+    let verify_success = RwSignal::new(false);
+
     let register_form: NodeRef<leptos::html::Form> = NodeRef::new();
 
     // Shared error toast helper
@@ -54,8 +58,9 @@ pub fn LoginPage() -> impl IntoView {
     // Handle email login result
     Effect::new(move |_| match login.value().get() {
         Some(Ok(_)) => {
+            login_success.set(true);
             #[cfg(feature = "hydrate")]
-            let _ = js_sys::eval("window.location.href = '/'");
+            let _ = js_sys::eval("setTimeout(() => { window.location.href = '/'; }, 700)");
         }
         Some(Err(e)) => show_error(&e),
         None => {}
@@ -67,8 +72,9 @@ pub fn LoginPage() -> impl IntoView {
             if let Some(form) = register_form.get() {
                 form.reset();
             }
+            register_success.set(true);
             #[cfg(feature = "hydrate")]
-            let _ = js_sys::eval("window.location.href = '/'");
+            let _ = js_sys::eval("setTimeout(() => { window.location.href = '/'; }, 700)");
         }
         Some(Err(e)) => show_error(&e),
         None => {}
@@ -90,6 +96,7 @@ pub fn LoginPage() -> impl IntoView {
     // Handle verify OTP result
     Effect::new(move |_| match verify_otp.value().get() {
         Some(Ok(result)) => {
+            verify_success.set(true);
             #[cfg(feature = "hydrate")]
             {
                 let url = if result == crate::auth::OtpResult::NewAccount {
@@ -97,7 +104,10 @@ pub fn LoginPage() -> impl IntoView {
                 } else {
                     "/"
                 };
-                let _ = js_sys::eval(&format!("window.location.href = '{}'", url));
+                let _ = js_sys::eval(&format!(
+                    "setTimeout(() => {{ window.location.href = '{}'; }}, 700)",
+                    url
+                ));
             }
             let _ = result;
         }
@@ -181,6 +191,7 @@ pub fn LoginPage() -> impl IntoView {
                                 {move || if send_otp_pending.get() { "Sending..." } else { "Send OTP" }}
                             </button>
                         </Show>
+                        <p class="otp-voice-note">"You'll receive a voice call with the OTP (SMS unavailable due to regulations)."</p>
                         <Show when=move || otp_sent.get()>
                             <p class="otp-hint">"Enter the 6-digit code sent to "<strong>{move || format!("+91 {}", otp_phone.get())}</strong></p>
                             <input
@@ -197,13 +208,20 @@ pub fn LoginPage() -> impl IntoView {
                             />
                             <button
                                 class="auth-submit"
-                                disabled=move || verify_otp_pending.get()
+                                class:auth-submit--success=move || verify_success.get()
+                                disabled=move || verify_otp_pending.get() || verify_success.get()
                                 on:click=on_verify_otp
                             >
                                 <Show when=move || verify_otp_pending.get()>
                                     <span class="auth-spinner"></span>
                                 </Show>
-                                {move || if verify_otp_pending.get() { "Verifying..." } else { "Verify & Sign In" }}
+                                {move || if verify_success.get() {
+                                    "✓ Signed in!"
+                                } else if verify_otp_pending.get() {
+                                    "Verifying..."
+                                } else {
+                                    "Verify & Sign In"
+                                }}
                             </button>
                             <button
                                 class="auth-link otp-resend"
@@ -226,12 +244,19 @@ pub fn LoginPage() -> impl IntoView {
                                 <button
                                     type="submit"
                                     class="auth-submit"
-                                    disabled=move || login_pending.get()
+                                    class:auth-submit--success=move || login_success.get()
+                                    disabled=move || login_pending.get() || login_success.get()
                                 >
                                     <Show when=move || login_pending.get()>
                                         <span class="auth-spinner"></span>
                                     </Show>
-                                    {move || if login_pending.get() { "Signing in..." } else { "Sign in" }}
+                                    {move || if login_success.get() {
+                                        "✓ Signed in!"
+                                    } else if login_pending.get() {
+                                        "Signing in..."
+                                    } else {
+                                        "Sign in"
+                                    }}
                                 </button>
                             </ActionForm>
                         </div>
@@ -252,12 +277,19 @@ pub fn LoginPage() -> impl IntoView {
                                 <button
                                     type="submit"
                                     class="auth-submit"
-                                    disabled=move || register_pending.get()
+                                    class:auth-submit--success=move || register_success.get()
+                                    disabled=move || register_pending.get() || register_success.get()
                                 >
                                     <Show when=move || register_pending.get()>
                                         <span class="auth-spinner"></span>
                                     </Show>
-                                    {move || if register_pending.get() { "Creating account..." } else { "Create account" }}
+                                    {move || if register_success.get() {
+                                        "✓ Account created!"
+                                    } else if register_pending.get() {
+                                        "Creating account..."
+                                    } else {
+                                        "Create account"
+                                    }}
                                 </button>
                             </ActionForm>
                         </div>
