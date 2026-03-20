@@ -1,7 +1,39 @@
+// ── Tab nav ─────────────────────────────────────────────
+.admin-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.admin-tab {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.2s, border-color 0.2s;
+
+  &:hover { color: var(--text-secondary); }
+
+  &--active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent, #e74c3c);
+  }
+}
+
+// ── Admin page variants ──────────────────────────────────
 .admin-page {
   max-width: 600px;
   margin: 0 auto;
   padding: 1rem;
+
+  &--wide {
+    max-width: 1200px;
+  }
 
   h1 {
     font-size: 1.5rem;
@@ -111,4 +143,294 @@
   color: var(--text-dim);
   text-align: center;
   padding: 2rem;
+}
+
+// ── Exercise table (desktop-only) ────────────────────────
+.admin-exercises-mobile-msg {
+  display: none;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.admin-exercises-content {
+  display: block;
+}
+
+@media (max-width: 1024px) {
+  .admin-exercises-mobile-msg { display: block; }
+  .admin-exercises-content { display: none; }
+}
+
+.admin-exercises-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.admin-add-btn {
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent, #e74c3c);
+  background: transparent;
+  color: var(--accent, #e74c3c);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+
+  &:hover:not(:disabled) {
+    background: var(--accent, #e74c3c);
+    color: #fff;
+  }
+
+  &:disabled { opacity: 0.4; cursor: default; }
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+
+  thead tr {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.55rem 0.75rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+}
+
+.admin-table-add-row td,
+.admin-table-edit-row td {
+  background: rgba(255,255,255,0.03);
+  padding: 0.4rem 0.5rem;
+}
+
+.admin-table-loading,
+.admin-table-empty {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 2rem !important;
+}
+
+.admin-cell-name { font-weight: 600; color: var(--text-primary); }
+
+.admin-cell-desc,
+.admin-cell-video {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
+.admin-cell-input {
+  width: 100%;
+  min-width: 100px;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-input, var(--bg-card));
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  box-sizing: border-box;
+}
+
+.admin-cell-select {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-input, var(--bg-card));
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.admin-table-actions {
+  white-space: nowrap;
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.admin-btn {
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:disabled { opacity: 0.4; cursor: default; }
+
+  &--edit   { background: rgba(52,152,219,0.15); color: #3498db; }
+  &--delete { background: rgba(231,76,60,0.12);  color: #e74c3c; }
+  &--save   { background: rgba(46,204,113,0.15); color: #2ecc71; }
+  &--cancel { background: rgba(255,255,255,0.06); color: var(--text-dim); }
+}
+
+// ── Add Exercise Modal ────────────────────────────────────
+.ex-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.ex-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 520px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ex-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ex-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ex-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0.25rem;
+
+  &:hover { color: var(--text-primary); }
+}
+
+.ex-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.ex-modal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.ex-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.ex-modal-input,
+.ex-modal-select,
+.ex-modal-textarea {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-input, var(--bg-card));
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.25);
+  }
+}
+
+.ex-modal-textarea {
+  resize: vertical;
+  font-family: inherit;
+  min-height: 70px;
+}
+
+.ex-modal-error {
+  font-size: 0.8rem;
+  color: #f87171;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.2);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+}
+
+.ex-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.ex-modal-btn {
+  padding: 0.5rem 1.1rem;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled { opacity: 0.5; cursor: default; }
+
+  &--cancel {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-dim);
+  }
+
+  &--save {
+    background: rgba(46,204,113,0.18);
+    color: #2ecc71;
+
+    &:hover:not(:disabled) { background: rgba(46,204,113,0.28); }
+  }
 }

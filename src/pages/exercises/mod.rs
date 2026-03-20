@@ -12,7 +12,7 @@ use exercise_form::ExerciseForm;
 use leptos::prelude::*;
 
 pub(crate) use helpers::*;
-pub(super) use server_fns::*;
+pub(crate) use server_fns::*;
 
 #[component]
 pub fn ExercisesPage() -> impl IntoView {

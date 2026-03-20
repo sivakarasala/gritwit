@@ -1,7 +1,7 @@
 use crate::auth::{get_me, AuthUser, UserRole};
 use crate::pages::{
-    AdminPage, ExercisesPage, HistoryPage, HomePage, LogWorkoutPage, LoginPage, ProfilePage,
-    WodPage,
+    AdminExercisesPage, AdminPage, ExercisesPage, HistoryPage, HomePage, LogWorkoutPage, LoginPage,
+    ProfilePage, WodPage,
 };
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
@@ -103,6 +103,10 @@ pub fn App() -> impl IntoView {
                                     }/>
                                     <Route path=StaticSegment("admin") view=move || {
                                         if is_authed { view! { <AdminPage/> }.into_any() }
+                                        else { view! { <LoginPage/> }.into_any() }
+                                    }/>
+                                    <Route path=(StaticSegment("admin"), StaticSegment("exercises")) view=move || {
+                                        if is_authed { view! { <AdminExercisesPage/> }.into_any() }
                                         else { view! { <LoginPage/> }.into_any() }
                                     }/>
                                 </Routes>

@@ -1,5 +1,5 @@
 mod admin;
-mod exercises;
+pub(crate) mod exercises;
 mod history;
 mod home;
 mod log_workout;
@@ -7,7 +7,7 @@ mod login;
 mod profile;
 mod wod;
 
-pub use admin::AdminPage;
+pub use admin::{AdminExercisesPage, AdminPage};
 pub use exercises::ExercisesPage;
 pub use history::HistoryPage;
 pub use home::HomePage;
