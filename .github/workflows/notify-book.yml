@@ -1,0 +1,24 @@
+name: Notify Book Repo
+
+# Trigger the gritwit-book sync check when GrindIt main is updated
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'migrations/**'
+      - 'Cargo.toml'
+      - 'Dockerfile'
+
+jobs:
+  notify:
+    name: Trigger book sync check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch to gritwit-book
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.BOOK_REPO_TOKEN }}
+          repository: sivakarasala/gritwit-book
+          event-type: grindit-updated
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
